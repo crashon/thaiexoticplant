@@ -1,0 +1,419 @@
+/* Custom Styles for Thai Exotic Plants */
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Loading animation */
+.loading {
+    position: relative;
+    overflow: hidden;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% {
+        left: -100%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+/* Product card hover effects */
+.product-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.product-image {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+}
+
+.product-image img {
+    transition: transform 0.3s ease;
+}
+
+.product-card:hover .product-image img {
+    transform: scale(1.05);
+}
+
+/* Category card styles */
+.category-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+    height: 200px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.category-card:hover {
+    transform: scale(1.02);
+}
+
+.category-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(45, 80, 22, 0.8), rgba(74, 222, 128, 0.6));
+    z-index: 1;
+}
+
+.category-card-content {
+    position: relative;
+    z-index: 2;
+    color: white;
+    padding: 1.5rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+}
+
+/* Filter buttons */
+.filter-btn {
+    transition: all 0.3s ease;
+}
+
+.filter-btn.active {
+    background-color: #4ade80 !important;
+    color: white !important;
+}
+
+/* Badge styles */
+.badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    z-index: 10;
+}
+
+.badge-rare {
+    background-color: #dc2626;
+    color: white;
+}
+
+.badge-featured {
+    background-color: #ffd700;
+    color: #2d5016;
+}
+
+.badge-new {
+    background-color: #4ade80;
+    color: white;
+}
+
+/* Price display */
+.price {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #2d5016;
+}
+
+.price-original {
+    font-size: 1rem;
+    color: #6b7280;
+    text-decoration: line-through;
+}
+
+/* Cart animation */
+.add-to-cart-btn {
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.add-to-cart-btn:hover {
+    transform: translateY(-2px);
+}
+
+.add-to-cart-btn.added {
+    background-color: #10b981 !important;
+}
+
+.add-to-cart-btn.added::after {
+    content: '✓ 추가됨';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #10b981;
+    color: white;
+    transform: translateY(-100%);
+    animation: slideDown 0.3s ease forwards;
+}
+
+@keyframes slideDown {
+    to {
+        transform: translateY(0);
+    }
+}
+
+/* Social media icons */
+.social-links a {
+    transition: all 0.3s ease;
+}
+
+.social-links a:hover {
+    transform: translateY(-2px);
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .hero-title {
+        font-size: 2.5rem;
+    }
+    
+    .product-grid {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+    
+    .category-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+}
+
+/* Notification styles */
+.notification {
+    position: fixed;
+    top: 100px;
+    right: 20px;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    z-index: 1000;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+}
+
+.notification.show {
+    transform: translateX(0);
+}
+
+.notification.success {
+    background-color: #10b981;
+}
+
+.notification.error {
+    background-color: #ef4444;
+}
+
+.notification.info {
+    background-color: #3b82f6;
+}
+
+/* Video player styles */
+.video-container {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
+}
+
+.video-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Image gallery styles */
+.image-gallery {
+    position: relative;
+}
+
+.gallery-main {
+    width: 100%;
+    height: 300px;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.gallery-main img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.gallery-thumbs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px;
+}
+
+.gallery-thumb {
+    flex-shrink: 0;
+    width: 60px;
+    height: 60px;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.3s ease;
+}
+
+.gallery-thumb.active {
+    border-color: #4ade80;
+}
+
+.gallery-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Modal styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.modal.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+.modal.show .modal-content {
+    transform: scale(1);
+}
+
+/* Form styles */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #374151;
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #4ade80;
+    box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.1);
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* Progress bar */
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background-color: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #4ade80;
+    transition: width 0.3s ease;
+}
+
+/* Skeleton loader */
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+.skeleton-text {
+    height: 1rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+}
+
+.skeleton-image {
+    width: 100%;
+    height: 200px;
+    border-radius: 8px;
+}
+
+/* Utility classes */
+.text-gradient {
+    background: linear-gradient(45deg, #4ade80, #2d5016);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.shadow-custom {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.border-gradient {
+    border: 2px solid transparent;
+    background: linear-gradient(white, white) padding-box,
+                linear-gradient(45deg, #4ade80, #2d5016) border-box;
+}

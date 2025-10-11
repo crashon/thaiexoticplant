@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 대시보드 - Thai Exotic Plants</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'noto': ['Noto Sans KR', 'sans-serif']
+                    },
+                    colors: {
+                        'thai-green': '#2d5016',
+                        'thai-gold': '#ffd700',
+                        'plant-green': '#4ade80'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="font-noto bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-lg">
+        <nav class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-seedling text-3xl text-plant-green"></i>
+                    <div>
+                        <h1 class="text-xl font-bold text-thai-green">Thai Exotic Plants</h1>
+                        <p class="text-sm text-gray-600">관리자 대시보드</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <a href="index.html" class="text-gray-700 hover:text-plant-green">
+                        <i class="fas fa-home mr-2"></i>홈으로
+                    </a>
+                    <div class="flex items-center space-x-2 text-gray-700">
+                        <i class="fas fa-user-shield"></i>
+                        <span>관리자</span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white shadow-lg">
+            <nav class="p-6">
+                <ul class="space-y-2">
+                    <li>
+                        <a href="#dashboard" onclick="showSection('dashboard')" 
+                           class="nav-link active flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
+                            <i class="fas fa-chart-line"></i>
+                            <span>대시보드</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#products" onclick="showSection('products')" 
+                           class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
+                            <i class="fas fa-seedling"></i>
+                            <span>상품 관리</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#categories" onclick="showSection('categories')" 
+                           class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
+                            <i class="fas fa-tags"></i>
+                            <span>카테고리 관리</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#orders" onclick="showSection('orders')" 
+                           class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span>주문 관리</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#social" onclick="showSection('social')" 
+                           class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
+                            <i class="fas fa-share-alt"></i>
+                            <span>소셜미디어</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#media" onclick="showSection('media')" 
+                           class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
+                            <i class="fas fa-images"></i>
+                            <span>미디어 관리</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-8">
+            <!-- Dashboard Section -->
+            <section id="dashboard-section" class="admin-section">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-thai-green mb-2">대시보드</h2>
+                    <p class="text-gray-600">Thai Exotic Plants 쇼핑몰 현황을 한눈에 확인하세요</p>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">총 상품</p>
+                                <p id="total-products" class="text-3xl font-bold text-thai-green">0</p>
+                            </div>
+                            <div class="bg-plant-green/10 p-3 rounded-full">
+                                <i class="fas fa-seedling text-2xl text-plant-green"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">총 주문</p>
+                                <p id="total-orders" class="text-3xl font-bold text-thai-green">0</p>
+                            </div>
+                            <div class="bg-thai-gold/10 p-3 rounded-full">
+                                <i class="fas fa-shopping-cart text-2xl text-thai-gold"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">총 매출</p>
+                                <p id="total-revenue" class="text-3xl font-bold text-thai-green">0 ฿</p>
+                            </div>
+                            <div class="bg-green-100 p-3 rounded-full">
+                                <i class="fas fa-chart-line text-2xl text-green-600"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">소셜 포스트</p>
+                                <p id="total-posts" class="text-3xl font-bold text-thai-green">0</p>
+                            </div>
+                            <div class="bg-blue-100 p-3 rounded-full">
+                                <i class="fas fa-share-alt text-2xl text-blue-600"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold mb-4">월별 판매 현황</h3>
+                        <canvas id="sales-chart" style="height: 300px;"></canvas>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold mb-4">카테고리별 상품 분포</h3>
+                        <canvas id="category-chart" style="height: 300px;"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Products Section -->
+            <section id="products-section" class="admin-section hidden">
+                <div class="mb-8 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-3xl font-bold text-thai-green mb-2">상품 관리</h2>
+                        <p class="text-gray-600">상품을 추가, 수정, 삭제할 수 있습니다</p>
+                    </div>
+                    <button onclick="showAddProductModal()" 
+                            class="bg-plant-green text-white px-6 py-3 rounded-lg hover:bg-green-600 transition duration-300">
+                        <i class="fas fa-plus mr-2"></i>상품 추가
+                    </button>
+                </div>
+
+                <!-- Product Search & Filter -->
+                <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <div class="grid md:grid-cols-4 gap-4">
+                        <div>
+                            <input type="text" id="product-search-admin" placeholder="상품명으로 검색..." 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                        </div>
+                        <div>
+                            <select id="category-filter-admin" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                                <option value="">전체 카테고리</option>
+                            </select>
+                        </div>
+                        <div>
+                            <select id="status-filter" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                                <option value="">전체 상태</option>
+                                <option value="active">활성</option>
+                                <option value="inactive">비활성</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button onclick="exportProducts()" 
+                                    class="w-full bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition duration-200">
+                                <i class="fas fa-download mr-2"></i>내보내기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Products Table -->
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">카테고리</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">가격</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">재고</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+                                </tr>
+                            </thead>
+                            <tbody id="products-table-body" class="bg-white divide-y divide-gray-200">
+                                <!-- Products will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">
+                        <div class="flex-1 flex justify-between sm:hidden">
+                            <button onclick="prevPage()" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                이전
+                            </button>
+                            <button onclick="nextPage()" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                다음
+                            </button>
+                        </div>
+                        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                            <div>
+                                <p class="text-sm text-gray-700">
+                                    <span id="pagination-info">총 0개 상품</span>
+                                </p>
+                            </div>
+                            <div id="pagination-controls">
+                                <!-- Pagination controls will be generated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Categories Section -->
+            <section id="categories-section" class="admin-section hidden">
+                <div class="mb-8 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-3xl font-bold text-thai-green mb-2">카테고리 관리</h2>
+                        <p class="text-gray-600">상품 카테고리를 관리하고 정리할 수 있습니다</p>
+                    </div>
+                    <button onclick="showAddCategoryModal()" 
+                            class="bg-plant-green text-white px-6 py-3 rounded-lg hover:bg-green-600 transition duration-300">
+                        <i class="fas fa-plus mr-2"></i>카테고리 추가
+                    </button>
+                </div>
+
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6" id="categories-admin-grid">
+                    <!-- Categories will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Orders Section -->
+            <section id="orders-section" class="admin-section hidden">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-thai-green mb-2">주문 관리</h2>
+                    <p class="text-gray-600">고객 주문을 확인하고 관리할 수 있습니다</p>
+                </div>
+
+                <!-- Order Filters -->
+                <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <div class="grid md:grid-cols-5 gap-4">
+                        <div>
+                            <input type="text" id="order-search" placeholder="주문번호로 검색..." 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                        </div>
+                        <div>
+                            <select id="order-status-filter" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                                <option value="">전체 상태</option>
+                                <option value="접수">접수</option>
+                                <option value="준비중">준비중</option>
+                                <option value="배송중">배송중</option>
+                                <option value="배송완료">배송완료</option>
+                                <option value="취소">취소</option>
+                            </select>
+                        </div>
+                        <div>
+                            <select id="payment-status-filter" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                                <option value="">결제 상태</option>
+                                <option value="대기">대기</option>
+                                <option value="완료">완료</option>
+                                <option value="실패">실패</option>
+                                <option value="취소">취소</option>
+                            </select>
+                        </div>
+                        <div>
+                            <input type="date" id="order-date-from" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                        </div>
+                        <div>
+                            <input type="date" id="order-date-to" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Orders Table -->
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주문번호</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">고객</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주문금액</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">결제상태</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주문상태</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주문일</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orders-table-body" class="bg-white divide-y divide-gray-200">
+                                <!-- Orders will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Social Media Section -->
+            <section id="social-section" class="admin-section hidden">
+                <div class="mb-8 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-3xl font-bold text-thai-green mb-2">소셜미디어 관리</h2>
+                        <p class="text-gray-600">페이스북, 인스타그램, 트위터 자동 포스팅을 관리하세요</p>
+                    </div>
+                    <button onclick="showAddSocialPostModal()" 
+                            class="bg-plant-green text-white px-6 py-3 rounded-lg hover:bg-green-600 transition duration-300">
+                        <i class="fas fa-plus mr-2"></i>포스트 예약
+                    </button>
+                </div>
+
+                <!-- Social Stats -->
+                <div class="grid md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-blue-600 text-white p-6 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm opacity-90">Facebook</p>
+                                <p class="text-2xl font-bold">연결됨</p>
+                            </div>
+                            <i class="fab fa-facebook text-3xl"></i>
+                        </div>
+                    </div>
+                    <div class="bg-pink-600 text-white p-6 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm opacity-90">Instagram</p>
+                                <p class="text-2xl font-bold">연결됨</p>
+                            </div>
+                            <i class="fab fa-instagram text-3xl"></i>
+                        </div>
+                    </div>
+                    <div class="bg-black text-white p-6 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm opacity-90">Twitter (X)</p>
+                                <p class="text-2xl font-bold">연결됨</p>
+                            </div>
+                            <i class="fab fa-twitter text-3xl"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Social Posts -->
+                <div class="bg-white rounded-lg shadow-md">
+                    <div class="p-6 border-b">
+                        <h3 class="text-xl font-semibold">예약된 포스트</h3>
+                    </div>
+                    <div id="social-posts-list" class="divide-y divide-gray-200">
+                        <!-- Social posts will be loaded here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Media Section -->
+            <section id="media-section" class="admin-section hidden">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-thai-green mb-2">미디어 관리</h2>
+                    <p class="text-gray-600">이미지와 동영상을 업로드하고 관리하세요</p>
+                </div>
+
+                <!-- Upload Area -->
+                <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">파일을 업로드하세요</h3>
+                        <p class="text-gray-500 mb-4">이미지나 동영상을 드래그하여 놓거나 클릭하여 선택하세요</p>
+                        <input type="file" id="file-upload" multiple accept="image/*,video/*" class="hidden">
+                        <button onclick="document.getElementById('file-upload').click()" 
+                                class="bg-plant-green text-white px-6 py-2 rounded-lg hover:bg-green-600 transition duration-300">
+                            파일 선택
+                        </button>
+                    </div>
+                    
+                    <!-- Upload Progress -->
+                    <div id="upload-progress" class="hidden mt-4">
+                        <div class="progress-bar">
+                            <div id="upload-progress-fill" class="progress-fill" style="width: 0%"></div>
+                        </div>
+                        <p id="upload-status" class="text-sm text-gray-600 mt-2">업로드 중...</p>
+                    </div>
+                </div>
+
+                <!-- Media Gallery -->
+                <div class="bg-white rounded-lg shadow-md">
+                    <div class="p-6 border-b">
+                        <h3 class="text-xl font-semibold">미디어 라이브러리</h3>
+                    </div>
+                    <div id="media-gallery" class="p-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        <!-- Media items will be loaded here -->
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals will be inserted here by JavaScript -->
+
+    <!-- Scripts -->
+    <script src="js/main.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/social-media.js"></script>
+    <script src="js/media-manager.js"></script>
+</body>
+</html>
