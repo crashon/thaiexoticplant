@@ -119,42 +119,361 @@ class AdminDashboard {
 
     async loadProducts() {
         try {
+            // Try to load from API first
             const response = await fetch('tables/products?limit=1000');
-            const result = await response.json();
-            this.products = result.data;
+            if (response.ok) {
+                const result = await response.json();
+                this.products = result.data || [];
+            } else {
+                throw new Error('API not available');
+            }
         } catch (error) {
-            console.error('Error loading products:', error);
+            console.error('Error loading products from API:', error);
+            // Fallback to localStorage or default data
+            this.loadProductsFromStorage();
         }
+    }
+
+    loadProductsFromStorage() {
+        try {
+            const stored = localStorage.getItem('thaiPlantsProducts');
+            if (stored) {
+                this.products = JSON.parse(stored);
+            } else {
+                this.products = this.getDefaultProducts();
+                this.saveProductsToStorage();
+            }
+        } catch (error) {
+            console.error('Error loading products from storage:', error);
+            this.products = this.getDefaultProducts();
+        }
+    }
+
+    saveProductsToStorage() {
+        try {
+            localStorage.setItem('thaiPlantsProducts', JSON.stringify(this.products));
+        } catch (error) {
+            console.error('Error saving products to storage:', error);
+        }
+    }
+
+    getDefaultProducts() {
+        return [
+            {
+                id: '1',
+                name: 'Monstera Thai Constellation',
+                korean_name: '몬스테라 타이 컨스텔레이션',
+                thai_name: 'Monstera Thai Constellation',
+                scientific_name: 'Monstera deliciosa',
+                description: '아름다운 무늬를 자랑하는 희귀 몬스테라로, 태국에서 직접 수집한 특별한 품종입니다.',
+                category_id: '1',
+                price: 15000,
+                price_usd: 450,
+                stock_quantity: 5,
+                images: ['https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400'],
+                videos: [],
+                difficulty_level: '중급',
+                is_rare: true,
+                is_featured: true,
+                is_active: true,
+                origin_location: '태국 북부',
+                tags: ['몬스테라', '희귀종', '무늬'],
+                created_at: new Date().toISOString()
+            },
+            {
+                id: '2',
+                name: 'Philodendron Pink Princess',
+                korean_name: '필로덴드론 핑크 프린세스',
+                thai_name: 'Philodendron Pink Princess',
+                scientific_name: 'Philodendron erubescens',
+                description: '핑크색 무늬가 매력적인 필로덴드론으로, 실내에서 키우기 좋은 관엽식물입니다.',
+                category_id: '1',
+                price: 8500,
+                price_usd: 250,
+                stock_quantity: 8,
+                images: ['https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400'],
+                videos: [],
+                difficulty_level: '중급',
+                is_rare: true,
+                is_featured: false,
+                is_active: true,
+                origin_location: '태국 중부',
+                tags: ['필로덴드론', '핑크', '무늬'],
+                created_at: new Date().toISOString()
+            },
+            {
+                id: '3',
+                name: 'Aglaonema Red Valentine',
+                korean_name: '아글라오네마 레드 발렌타인',
+                thai_name: 'Aglaonema Red Valentine',
+                scientific_name: 'Aglaonema commutatum',
+                description: '빨간 잎이 아름다운 관엽식물로, 초보자도 쉽게 키울 수 있습니다.',
+                category_id: '3',
+                price: 2800,
+                price_usd: 85,
+                stock_quantity: 15,
+                images: ['https://images.unsplash.com/photo-1440589473619-3cde28941638?w=400'],
+                videos: [],
+                difficulty_level: '초보',
+                is_rare: false,
+                is_featured: true,
+                is_active: true,
+                origin_location: '태국 남부',
+                tags: ['아글라오네마', '빨강', '초보자'],
+                created_at: new Date().toISOString()
+            },
+            {
+                id: '4',
+                name: 'Haworthia Cooperi',
+                korean_name: '하월시아 쿠페리',
+                thai_name: 'Haworthia Cooperi',
+                scientific_name: 'Haworthia cooperi',
+                description: '투명한 잎이 신비로운 다육식물로, 물을 적게 주어도 잘 자랍니다.',
+                category_id: '2',
+                price: 1200,
+                price_usd: 35,
+                stock_quantity: 25,
+                images: ['https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?w=400'],
+                videos: [],
+                difficulty_level: '초보',
+                is_rare: false,
+                is_featured: false,
+                is_active: true,
+                origin_location: '태국 동부',
+                tags: ['하월시아', '다육식물', '투명'],
+                created_at: new Date().toISOString()
+            }
+        ];
     }
 
     async loadCategories() {
         try {
             const response = await fetch('tables/categories?limit=100');
-            const result = await response.json();
-            this.categories = result.data;
+            if (response.ok) {
+                const result = await response.json();
+                this.categories = result.data || [];
+            } else {
+                throw new Error('API not available');
+            }
         } catch (error) {
-            console.error('Error loading categories:', error);
+            console.error('Error loading categories from API:', error);
+            this.loadCategoriesFromStorage();
         }
+    }
+
+    loadCategoriesFromStorage() {
+        try {
+            const stored = localStorage.getItem('thaiPlantsCategories');
+            if (stored) {
+                this.categories = JSON.parse(stored);
+            } else {
+                this.categories = this.getDefaultCategories();
+                this.saveCategoriesToStorage();
+            }
+        } catch (error) {
+            console.error('Error loading categories from storage:', error);
+            this.categories = this.getDefaultCategories();
+        }
+    }
+
+    saveCategoriesToStorage() {
+        try {
+            localStorage.setItem('thaiPlantsCategories', JSON.stringify(this.categories));
+        } catch (error) {
+            console.error('Error saving categories to storage:', error);
+        }
+    }
+
+    getDefaultCategories() {
+        return [
+            {
+                id: '1',
+                name: '희귀 아로이드',
+                description: '몬스테라, 필로덴드론 등 희귀한 아로이드 계열',
+                image_url: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400',
+                is_active: true,
+                sort_order: 1,
+                created_at: new Date().toISOString()
+            },
+            {
+                id: '2',
+                name: '다육식물',
+                description: '태국 자생 다육식물과 선인장류',
+                image_url: 'https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?w=400',
+                is_active: true,
+                sort_order: 2,
+                created_at: new Date().toISOString()
+            },
+            {
+                id: '3',
+                name: '관엽식물',
+                description: '실내에서 기르기 좋은 열대 관엽식물',
+                image_url: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400',
+                is_active: true,
+                sort_order: 3,
+                created_at: new Date().toISOString()
+            },
+            {
+                id: '4',
+                name: '꽃식물',
+                description: '아름다운 꽃을 피우는 열대 식물',
+                image_url: 'https://images.unsplash.com/photo-1440589473619-3cde28941638?w=400',
+                is_active: true,
+                sort_order: 4,
+                created_at: new Date().toISOString()
+            }
+        ];
     }
 
     async loadOrders() {
         try {
             const response = await fetch('tables/orders?limit=1000');
-            const result = await response.json();
-            this.orders = result.data;
+            if (response.ok) {
+                const result = await response.json();
+                this.orders = result.data || [];
+            } else {
+                throw new Error('API not available');
+            }
         } catch (error) {
-            console.error('Error loading orders:', error);
+            console.error('Error loading orders from API:', error);
+            this.loadOrdersFromStorage();
         }
+    }
+
+    loadOrdersFromStorage() {
+        try {
+            const stored = localStorage.getItem('thaiPlantsOrders');
+            if (stored) {
+                this.orders = JSON.parse(stored);
+            } else {
+                this.orders = this.getDefaultOrders();
+                this.saveOrdersToStorage();
+            }
+        } catch (error) {
+            console.error('Error loading orders from storage:', error);
+            this.orders = this.getDefaultOrders();
+        }
+    }
+
+    saveOrdersToStorage() {
+        try {
+            localStorage.setItem('thaiPlantsOrders', JSON.stringify(this.orders));
+        } catch (error) {
+            console.error('Error saving orders to storage:', error);
+        }
+    }
+
+    getDefaultOrders() {
+        return [
+            {
+                id: '1',
+                order_number: 'TP241201001',
+                customer_name: '김식물',
+                customer_email: 'kim@example.com',
+                customer_phone: '010-1234-5678',
+                total_amount: 15000,
+                currency: 'THB',
+                payment_status: '완료',
+                order_status: '배송완료',
+                shipping_address: '서울시 강남구 테헤란로 123',
+                shipping_method: 'special',
+                notes: '문 앞에 놓아주세요',
+                created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+            },
+            {
+                id: '2',
+                order_number: 'TP241201002',
+                customer_name: '이정원',
+                customer_email: 'lee@example.com',
+                customer_phone: '010-2345-6789',
+                total_amount: 8500,
+                currency: 'THB',
+                payment_status: '완료',
+                order_status: '배송중',
+                shipping_address: '부산시 해운대구 센텀동로 456',
+                shipping_method: 'standard',
+                notes: '',
+                created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+            },
+            {
+                id: '3',
+                order_number: 'TP241201003',
+                customer_name: '박화원',
+                customer_email: 'park@example.com',
+                customer_phone: '010-3456-7890',
+                total_amount: 2800,
+                currency: 'THB',
+                payment_status: '대기',
+                order_status: '접수',
+                shipping_address: '대구시 수성구 동대구로 789',
+                shipping_method: 'standard',
+                notes: '오후 2시 이후 배송',
+                created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+            }
+        ];
     }
 
     async loadSocialPosts() {
         try {
             const response = await fetch('tables/social_posts?limit=100');
-            const result = await response.json();
-            this.socialPosts = result.data;
+            if (response.ok) {
+                const result = await response.json();
+                this.socialPosts = result.data || [];
+            } else {
+                throw new Error('API not available');
+            }
         } catch (error) {
-            console.error('Error loading social posts:', error);
+            console.error('Error loading social posts from API:', error);
+            this.loadSocialPostsFromStorage();
         }
+    }
+
+    loadSocialPostsFromStorage() {
+        try {
+            const stored = localStorage.getItem('thaiPlantsSocialPosts');
+            if (stored) {
+                this.socialPosts = JSON.parse(stored);
+            } else {
+                this.socialPosts = this.getDefaultSocialPosts();
+                this.saveSocialPostsToStorage();
+            }
+        } catch (error) {
+            console.error('Error loading social posts from storage:', error);
+            this.socialPosts = this.getDefaultSocialPosts();
+        }
+    }
+
+    saveSocialPostsToStorage() {
+        try {
+            localStorage.setItem('thaiPlantsSocialPosts', JSON.stringify(this.socialPosts));
+        } catch (error) {
+            console.error('Error saving social posts to storage:', error);
+        }
+    }
+
+    getDefaultSocialPosts() {
+        return [
+            {
+                id: '1',
+                title: '새로운 희귀 몬스테라 도착!',
+                content: '태국에서 직접 수집한 특별한 몬스테라가 도착했습니다. 한정 수량이니 서둘러 주문하세요! 🌿',
+                platforms: ['facebook', 'instagram', 'twitter'],
+                hashtags: ['#몬스테라', '#희귀식물', '#태국식물', '#인테리어'],
+                status: '예약',
+                scheduled_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+                created_at: new Date().toISOString()
+            },
+            {
+                id: '2',
+                title: '식물 관리 팁 - 겨울철 관리법',
+                content: '겨울철 식물 관리에 도움이 되는 팁을 공유합니다. 온도와 습도 조절이 중요해요! 🌱',
+                platforms: ['facebook', 'instagram'],
+                hashtags: ['#식물관리', '#겨울철', '#식물팁', '#관엽식물'],
+                status: '게시완료',
+                scheduled_time: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+                created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+            }
+        ];
     }
 
     showSection(sectionName) {
@@ -202,6 +521,11 @@ class AdminDashboard {
                 break;
             case 'media':
                 this.renderMediaGallery();
+                break;
+            case 'analytics':
+                if (window.socialAnalytics) {
+                    window.socialAnalytics.createAnalyticsDashboard();
+                }
                 break;
         }
     }
@@ -521,13 +845,73 @@ class AdminDashboard {
         const gallery = document.getElementById('media-gallery');
         if (!gallery) return;
 
-        // For now, show placeholder
-        gallery.innerHTML = `
-            <div class="col-span-full text-center py-8">
-                <i class="fas fa-images text-4xl text-gray-300 mb-4"></i>
-                <p class="text-gray-500">미디어 파일을 업로드하여 갤러리를 만드세요.</p>
+        // Load media from storage
+        const media = this.loadMediaFromStorage();
+        
+        if (media.length === 0) {
+            gallery.innerHTML = `
+                <div class="col-span-full text-center py-8">
+                    <i class="fas fa-images text-4xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500">미디어 파일을 업로드하여 갤러리를 만드세요.</p>
+                </div>
+            `;
+            return;
+        }
+
+        gallery.innerHTML = media.map(item => `
+            <div class="relative group">
+                <div class="aspect-square bg-gray-200 rounded-lg overflow-hidden">
+                    ${item.type === 'image' ? 
+                        `<img src="${item.url}" alt="${item.name}" class="w-full h-full object-cover">` :
+                        `<div class="w-full h-full flex items-center justify-center bg-gray-800">
+                            <i class="fas fa-play text-white text-2xl"></i>
+                        </div>`
+                    }
+                </div>
+                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div class="flex space-x-2">
+                        <button onclick="viewMedia('${item.id}')" 
+                                class="bg-white text-gray-800 p-2 rounded-full hover:bg-gray-100 transition duration-200">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button onclick="deleteMedia('${item.id}')" 
+                                class="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition duration-200">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <p class="text-sm font-medium text-gray-900 truncate">${item.name}</p>
+                    <p class="text-xs text-gray-500">${item.type.toUpperCase()} • ${this.formatFileSize(item.size)}</p>
+                </div>
             </div>
-        `;
+        `).join('');
+    }
+
+    loadMediaFromStorage() {
+        try {
+            const stored = localStorage.getItem('thaiPlantsMedia');
+            return stored ? JSON.parse(stored) : [];
+        } catch (error) {
+            console.error('Error loading media from storage:', error);
+            return [];
+        }
+    }
+
+    saveMediaToStorage(media) {
+        try {
+            localStorage.setItem('thaiPlantsMedia', JSON.stringify(media));
+        } catch (error) {
+            console.error('Error saving media to storage:', error);
+        }
+    }
+
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
     // Helper methods
@@ -603,6 +987,8 @@ class AdminDashboard {
 
         progressBar.classList.remove('hidden');
         
+        const media = this.loadMediaFromStorage();
+        
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             const progress = ((i + 1) / files.length) * 100;
@@ -610,20 +996,51 @@ class AdminDashboard {
             progressFill.style.width = progress + '%';
             statusText.textContent = `업로드 중... ${i + 1}/${files.length}`;
             
-            // Simulate file upload (replace with actual upload logic)
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            try {
+                // Convert file to base64 for storage
+                const base64 = await this.fileToBase64(file);
+                
+                const mediaItem = {
+                    id: Date.now().toString() + i,
+                    name: file.name,
+                    type: file.type.startsWith('image/') ? 'image' : 'video',
+                    url: base64,
+                    size: file.size,
+                    uploaded_at: new Date().toISOString()
+                };
+                
+                media.push(mediaItem);
+                
+                // Simulate upload delay
+                await new Promise(resolve => setTimeout(resolve, 500));
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                showNotification(`파일 ${file.name} 업로드 중 오류가 발생했습니다.`, 'error');
+            }
         }
 
+        // Save to storage
+        this.saveMediaToStorage(media);
+        
         progressBar.classList.add('hidden');
-        showNotification('파일이 성공적으로 업로드되었습니다.', 'success');
+        showNotification(`${files.length}개 파일이 성공적으로 업로드되었습니다.`, 'success');
         this.renderMediaGallery();
+    }
+
+    fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
     }
 }
 
 // Modal functions
 function showAddProductModal() {
     const modal = document.createElement('div');
-    modal.className = 'modal show';
+    modal.className = 'modal';
     modal.innerHTML = `
         <div class="modal-content max-w-4xl">
             <div class="flex justify-between items-center mb-6">
@@ -726,11 +1143,16 @@ function showAddProductModal() {
     `;
     
     document.body.appendChild(modal);
+    
+    // Trigger modal animation
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
 }
 
 function showAddCategoryModal() {
     const modal = document.createElement('div');
-    modal.className = 'modal show';
+    modal.className = 'modal';
     modal.innerHTML = `
         <div class="modal-content">
             <div class="flex justify-between items-center mb-6">
@@ -778,6 +1200,11 @@ function showAddCategoryModal() {
     `;
     
     document.body.appendChild(modal);
+    
+    // Trigger modal animation
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
 }
 
 // Submit functions
@@ -791,9 +1218,11 @@ async function submitProduct() {
     }
     
     const productData = {
+        id: Date.now().toString(), // Generate unique ID
         name: formData.get('name'),
         korean_name: formData.get('korean_name'),
         scientific_name: formData.get('scientific_name'),
+        thai_name: formData.get('korean_name'), // Use Korean name as Thai name for now
         description: formData.get('description'),
         category_id: formData.get('category_id'),
         price: parseFloat(formData.get('price')),
@@ -806,26 +1235,20 @@ async function submitProduct() {
         is_active: formData.get('is_active') === 'on',
         images: [],
         videos: [],
-        tags: []
+        tags: [],
+        created_at: new Date().toISOString()
     };
     
     try {
-        const response = await fetch('tables/products', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(productData)
-        });
+        // Add to memory
+        adminDashboard.products.push(productData);
         
-        if (response.ok) {
-            closeModal();
-            await adminDashboard.loadProducts();
-            adminDashboard.renderProducts();
-            showNotification('상품이 성공적으로 추가되었습니다.', 'success');
-        } else {
-            throw new Error('상품 추가에 실패했습니다.');
-        }
+        // Save to storage
+        adminDashboard.saveProductsToStorage();
+        
+        closeModal();
+        adminDashboard.renderProducts();
+        showNotification('상품이 성공적으로 추가되었습니다.', 'success');
     } catch (error) {
         console.error('Error adding product:', error);
         showNotification('상품 추가 중 오류가 발생했습니다.', 'error');
@@ -842,30 +1265,25 @@ async function submitCategory() {
     }
     
     const categoryData = {
+        id: Date.now().toString(), // Generate unique ID
         name: formData.get('name'),
         description: formData.get('description'),
         image_url: formData.get('image_url'),
         is_active: formData.get('is_active') === 'on',
-        sort_order: 0
+        sort_order: adminDashboard.categories.length + 1,
+        created_at: new Date().toISOString()
     };
     
     try {
-        const response = await fetch('tables/categories', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(categoryData)
-        });
+        // Add to memory
+        adminDashboard.categories.push(categoryData);
         
-        if (response.ok) {
-            closeModal();
-            await adminDashboard.loadCategories();
-            adminDashboard.renderCategories();
-            showNotification('카테고리가 성공적으로 추가되었습니다.', 'success');
-        } else {
-            throw new Error('카테고리 추가에 실패했습니다.');
-        }
+        // Save to storage
+        adminDashboard.saveCategoriesToStorage();
+        
+        closeModal();
+        adminDashboard.renderCategories();
+        showNotification('카테고리가 성공적으로 추가되었습니다.', 'success');
     } catch (error) {
         console.error('Error adding category:', error);
         showNotification('카테고리 추가 중 오류가 발생했습니다.', 'error');
@@ -879,38 +1297,1074 @@ function showSection(sectionName) {
 
 // Edit and delete functions
 function editProduct(productId) {
-    // Implementation for editing products
-    showNotification('상품 편집 기능은 준비 중입니다.', 'info');
+    const product = adminDashboard.products.find(p => p.id === productId);
+    if (!product) {
+        showNotification('상품을 찾을 수 없습니다.', 'error');
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content max-w-4xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-thai-green">상품 편집</h2>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <form id="edit-product-form" class="space-y-6">
+                <input type="hidden" name="id" value="${product.id}">
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="form-label">상품명 (영문) *</label>
+                        <input type="text" name="name" class="form-input" value="${product.name}" required>
+                    </div>
+                    <div>
+                        <label class="form-label">상품명 (한글)</label>
+                        <input type="text" name="korean_name" class="form-input" value="${product.korean_name || ''}">
+                    </div>
+                </div>
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="form-label">학명</label>
+                        <input type="text" name="scientific_name" class="form-input" value="${product.scientific_name || ''}">
+                    </div>
+                    <div>
+                        <label class="form-label">카테고리 *</label>
+                        <select name="category_id" class="form-input" required>
+                            <option value="">카테고리 선택</option>
+                            ${adminDashboard.categories.map(cat => 
+                                `<option value="${cat.id}" ${cat.id === product.category_id ? 'selected' : ''}>${cat.name}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="form-label">상품 설명</label>
+                    <textarea name="description" class="form-input form-textarea">${product.description || ''}</textarea>
+                </div>
+                
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="form-label">가격 (THB) *</label>
+                        <input type="number" name="price" class="form-input" value="${product.price}" required>
+                    </div>
+                    <div>
+                        <label class="form-label">가격 (USD) *</label>
+                        <input type="number" name="price_usd" class="form-input" value="${product.price_usd}" required>
+                    </div>
+                    <div>
+                        <label class="form-label">재고 수량 *</label>
+                        <input type="number" name="stock_quantity" class="form-input" value="${product.stock_quantity}" required>
+                    </div>
+                </div>
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="form-label">재배 난이도</label>
+                        <select name="difficulty_level" class="form-input">
+                            <option value="초보" ${product.difficulty_level === '초보' ? 'selected' : ''}>초보</option>
+                            <option value="중급" ${product.difficulty_level === '중급' ? 'selected' : ''}>중급</option>
+                            <option value="전문가" ${product.difficulty_level === '전문가' ? 'selected' : ''}>전문가</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">원산지</label>
+                        <input type="text" name="origin_location" class="form-input" value="${product.origin_location || ''}">
+                    </div>
+                </div>
+                
+                <div class="flex space-x-6">
+                    <label class="flex items-center">
+                        <input type="checkbox" name="is_rare" class="mr-2" ${product.is_rare ? 'checked' : ''}>
+                        희귀종
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="is_featured" class="mr-2" ${product.is_featured ? 'checked' : ''}>
+                        추천 상품
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="is_active" class="mr-2" ${product.is_active ? 'checked' : ''}>
+                        활성화
+                    </label>
+                </div>
+            </form>
+            
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="closeModal()" 
+                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition duration-300">
+                    취소
+                </button>
+                <button type="button" onclick="updateProduct()" 
+                        class="flex-1 bg-plant-green text-white py-3 rounded-lg hover:bg-green-600 transition duration-300">
+                    상품 수정
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Trigger modal animation
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+}
+
+async function updateProduct() {
+    const form = document.getElementById('edit-product-form');
+    const formData = new FormData(form);
+    
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const productId = formData.get('id');
+    const productData = {
+        name: formData.get('name'),
+        korean_name: formData.get('korean_name'),
+        scientific_name: formData.get('scientific_name'),
+        description: formData.get('description'),
+        category_id: formData.get('category_id'),
+        price: parseFloat(formData.get('price')),
+        price_usd: parseFloat(formData.get('price_usd')),
+        stock_quantity: parseInt(formData.get('stock_quantity')),
+        difficulty_level: formData.get('difficulty_level'),
+        origin_location: formData.get('origin_location'),
+        is_rare: formData.get('is_rare') === 'on',
+        is_featured: formData.get('is_featured') === 'on',
+        is_active: formData.get('is_active') === 'on'
+    };
+    
+    try {
+        // Update in memory
+        const productIndex = adminDashboard.products.findIndex(p => p.id === productId);
+        if (productIndex !== -1) {
+            adminDashboard.products[productIndex] = {
+                ...adminDashboard.products[productIndex],
+                ...productData,
+                updated_at: new Date().toISOString()
+            };
+            
+            // Save to storage
+            adminDashboard.saveProductsToStorage();
+            
+            closeModal();
+            adminDashboard.renderProducts();
+            showNotification('상품이 성공적으로 수정되었습니다.', 'success');
+        } else {
+            throw new Error('상품을 찾을 수 없습니다.');
+        }
+    } catch (error) {
+        console.error('Error updating product:', error);
+        showNotification('상품 수정 중 오류가 발생했습니다.', 'error');
+    }
 }
 
 function deleteProduct(productId) {
-    if (confirm('정말로 이 상품을 삭제하시겠습니까?')) {
-        // Implementation for deleting products
-        showNotification('상품 삭제 기능은 준비 중입니다.', 'info');
+    if (confirm('정말로 이 상품을 삭제하시겠습니까?\n삭제된 상품은 복구할 수 없습니다.')) {
+        try {
+            // Remove from memory
+            adminDashboard.products = adminDashboard.products.filter(p => p.id !== productId);
+            
+            // Save to storage
+            adminDashboard.saveProductsToStorage();
+            
+            // Re-render products
+            adminDashboard.renderProducts();
+            
+            showNotification('상품이 성공적으로 삭제되었습니다.', 'success');
+        } catch (error) {
+            console.error('Error deleting product:', error);
+            showNotification('상품 삭제 중 오류가 발생했습니다.', 'error');
+        }
     }
 }
 
 function editCategory(categoryId) {
-    showNotification('카테고리 편집 기능은 준비 중입니다.', 'info');
+    const category = adminDashboard.categories.find(c => c.id === categoryId);
+    if (!category) {
+        showNotification('카테고리를 찾을 수 없습니다.', 'error');
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-thai-green">카테고리 편집</h2>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <form id="edit-category-form" class="space-y-4">
+                <input type="hidden" name="id" value="${category.id}">
+                
+                <div>
+                    <label class="form-label">카테고리명 *</label>
+                    <input type="text" name="name" class="form-input" value="${category.name}" required>
+                </div>
+                
+                <div>
+                    <label class="form-label">설명</label>
+                    <textarea name="description" class="form-input form-textarea">${category.description || ''}</textarea>
+                </div>
+                
+                <div>
+                    <label class="form-label">이미지 URL</label>
+                    <input type="url" name="image_url" class="form-input" value="${category.image_url || ''}">
+                </div>
+                
+                <div>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="is_active" class="mr-2" ${category.is_active ? 'checked' : ''}>
+                        활성화
+                    </label>
+                </div>
+            </form>
+            
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="closeModal()" 
+                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition duration-300">
+                    취소
+                </button>
+                <button type="button" onclick="updateCategory()" 
+                        class="flex-1 bg-plant-green text-white py-3 rounded-lg hover:bg-green-600 transition duration-300">
+                    카테고리 수정
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Trigger modal animation
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+}
+
+async function updateCategory() {
+    const form = document.getElementById('edit-category-form');
+    const formData = new FormData(form);
+    
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const categoryId = formData.get('id');
+    const categoryData = {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        image_url: formData.get('image_url'),
+        is_active: formData.get('is_active') === 'on'
+    };
+    
+    try {
+        // Update in memory
+        const categoryIndex = adminDashboard.categories.findIndex(c => c.id === categoryId);
+        if (categoryIndex !== -1) {
+            adminDashboard.categories[categoryIndex] = {
+                ...adminDashboard.categories[categoryIndex],
+                ...categoryData,
+                updated_at: new Date().toISOString()
+            };
+            
+            // Save to storage
+            adminDashboard.saveCategoriesToStorage();
+            
+            closeModal();
+            adminDashboard.renderCategories();
+            showNotification('카테고리가 성공적으로 수정되었습니다.', 'success');
+        } else {
+            throw new Error('카테고리를 찾을 수 없습니다.');
+        }
+    } catch (error) {
+        console.error('Error updating category:', error);
+        showNotification('카테고리 수정 중 오류가 발생했습니다.', 'error');
+    }
 }
 
 function deleteCategory(categoryId) {
-    if (confirm('정말로 이 카테고리를 삭제하시겠습니까?')) {
-        showNotification('카테고리 삭제 기능은 준비 중입니다.', 'info');
+    if (confirm('정말로 이 카테고리를 삭제하시겠습니까?\n삭제된 카테고리는 복구할 수 없습니다.')) {
+        try {
+            // Check if any products are using this category
+            const productsInCategory = adminDashboard.products.filter(p => p.category_id === categoryId);
+            if (productsInCategory.length > 0) {
+                showNotification(`이 카테고리를 사용하는 상품이 ${productsInCategory.length}개 있습니다. 먼저 상품의 카테고리를 변경해주세요.`, 'error');
+                return;
+            }
+            
+            // Remove from memory
+            adminDashboard.categories = adminDashboard.categories.filter(c => c.id !== categoryId);
+            
+            // Save to storage
+            adminDashboard.saveCategoriesToStorage();
+            
+            // Re-render categories
+            adminDashboard.renderCategories();
+            
+            showNotification('카테고리가 성공적으로 삭제되었습니다.', 'success');
+        } catch (error) {
+            console.error('Error deleting category:', error);
+            showNotification('카테고리 삭제 중 오류가 발생했습니다.', 'error');
+        }
     }
 }
 
 function viewOrder(orderId) {
-    showNotification('주문 상세보기 기능은 준비 중입니다.', 'info');
+    const order = adminDashboard.orders.find(o => o.id === orderId);
+    if (!order) {
+        showNotification('주문을 찾을 수 없습니다.', 'error');
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content max-w-4xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-thai-green">주문 상세보기</h2>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">주문 정보</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <span class="font-medium">주문번호:</span>
+                            <span class="ml-2">${order.order_number}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">주문일:</span>
+                            <span class="ml-2">${new Date(order.created_at).toLocaleString('ko-KR')}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">총 금액:</span>
+                            <span class="ml-2 font-bold text-plant-green">${order.total_amount?.toLocaleString()} ${order.currency}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">결제 상태:</span>
+                            <span class="ml-2 px-2 py-1 text-xs rounded-full ${adminDashboard.getPaymentStatusColor(order.payment_status)}">
+                                ${order.payment_status}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="font-medium">주문 상태:</span>
+                            <span class="ml-2 px-2 py-1 text-xs rounded-full ${adminDashboard.getOrderStatusColor(order.order_status)}">
+                                ${order.order_status}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="font-medium">배송 방법:</span>
+                            <span class="ml-2">${order.shipping_method || '일반 배송'}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">고객 정보</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <span class="font-medium">고객명:</span>
+                            <span class="ml-2">${order.customer_name}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">이메일:</span>
+                            <span class="ml-2">${order.customer_email}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">전화번호:</span>
+                            <span class="ml-2">${order.customer_phone}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">배송 주소:</span>
+                            <div class="ml-2 mt-1 p-2 bg-gray-50 rounded text-sm">
+                                ${order.shipping_address}
+                            </div>
+                        </div>
+                        ${order.notes ? `
+                            <div>
+                                <span class="font-medium">주문 메모:</span>
+                                <div class="ml-2 mt-1 p-2 bg-gray-50 rounded text-sm">
+                                    ${order.notes}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6">
+                <h3 class="text-lg font-semibold mb-4">주문 상품</h3>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-gray-600">주문 상품 정보는 별도로 관리됩니다.</p>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="closeModal()" 
+                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition duration-300">
+                    닫기
+                </button>
+                <button type="button" onclick="editOrder('${order.id}')" 
+                        class="flex-1 bg-plant-green text-white py-3 rounded-lg hover:bg-green-600 transition duration-300">
+                    주문 수정
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Trigger modal animation
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
 }
 
 function editOrder(orderId) {
-    showNotification('주문 편집 기능은 준비 중입니다.', 'info');
+    const order = adminDashboard.orders.find(o => o.id === orderId);
+    if (!order) {
+        showNotification('주문을 찾을 수 없습니다.', 'error');
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content max-w-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-thai-green">주문 수정</h2>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <form id="edit-order-form" class="space-y-4">
+                <input type="hidden" name="id" value="${order.id}">
+                
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">결제 상태</label>
+                        <select name="payment_status" class="form-input">
+                            <option value="대기" ${order.payment_status === '대기' ? 'selected' : ''}>대기</option>
+                            <option value="완료" ${order.payment_status === '완료' ? 'selected' : ''}>완료</option>
+                            <option value="실패" ${order.payment_status === '실패' ? 'selected' : ''}>실패</option>
+                            <option value="취소" ${order.payment_status === '취소' ? 'selected' : ''}>취소</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">주문 상태</label>
+                        <select name="order_status" class="form-input">
+                            <option value="접수" ${order.order_status === '접수' ? 'selected' : ''}>접수</option>
+                            <option value="준비중" ${order.order_status === '준비중' ? 'selected' : ''}>준비중</option>
+                            <option value="배송중" ${order.order_status === '배송중' ? 'selected' : ''}>배송중</option>
+                            <option value="배송완료" ${order.order_status === '배송완료' ? 'selected' : ''}>배송완료</option>
+                            <option value="취소" ${order.order_status === '취소' ? 'selected' : ''}>취소</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="form-label">배송 추적번호</label>
+                    <input type="text" name="tracking_number" class="form-input" value="${order.tracking_number || ''}" placeholder="배송 추적번호를 입력하세요">
+                </div>
+                
+                <div>
+                    <label class="form-label">관리자 메모</label>
+                    <textarea name="admin_notes" class="form-input form-textarea" placeholder="관리자 메모를 입력하세요">${order.admin_notes || ''}</textarea>
+                </div>
+            </form>
+            
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="closeModal()" 
+                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition duration-300">
+                    취소
+                </button>
+                <button type="button" onclick="updateOrder()" 
+                        class="flex-1 bg-plant-green text-white py-3 rounded-lg hover:bg-green-600 transition duration-300">
+                    주문 수정
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Trigger modal animation
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+}
+
+async function updateOrder() {
+    const form = document.getElementById('edit-order-form');
+    const formData = new FormData(form);
+    
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const orderId = formData.get('id');
+    const orderData = {
+        payment_status: formData.get('payment_status'),
+        order_status: formData.get('order_status'),
+        tracking_number: formData.get('tracking_number'),
+        admin_notes: formData.get('admin_notes')
+    };
+    
+    try {
+        // Update in memory
+        const orderIndex = adminDashboard.orders.findIndex(o => o.id === orderId);
+        if (orderIndex !== -1) {
+            adminDashboard.orders[orderIndex] = {
+                ...adminDashboard.orders[orderIndex],
+                ...orderData,
+                updated_at: new Date().toISOString()
+            };
+            
+            // Save to storage
+            adminDashboard.saveOrdersToStorage();
+            
+            closeModal();
+            adminDashboard.renderOrders();
+            showNotification('주문이 성공적으로 수정되었습니다.', 'success');
+        } else {
+            throw new Error('주문을 찾을 수 없습니다.');
+        }
+    } catch (error) {
+        console.error('Error updating order:', error);
+        showNotification('주문 수정 중 오류가 발생했습니다.', 'error');
+    }
 }
 
 function exportProducts() {
-    showNotification('상품 내보내기 기능은 준비 중입니다.', 'info');
+    try {
+        const data = {
+            products: adminDashboard.products,
+            categories: adminDashboard.categories,
+            orders: adminDashboard.orders,
+            socialPosts: adminDashboard.socialPosts,
+            exportDate: new Date().toISOString(),
+            version: '1.0'
+        };
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `thai-plants-data-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showNotification('데이터가 성공적으로 내보내기되었습니다.', 'success');
+    } catch (error) {
+        console.error('Error exporting data:', error);
+        showNotification('데이터 내보내기 중 오류가 발생했습니다.', 'error');
+    }
 }
+
+function importData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                if (confirm('기존 데이터를 모두 교체하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+                    if (data.products) adminDashboard.products = data.products;
+                    if (data.categories) adminDashboard.categories = data.categories;
+                    if (data.orders) adminDashboard.orders = data.orders;
+                    if (data.socialPosts) adminDashboard.socialPosts = data.socialPosts;
+                    
+                    // Save to storage
+                    adminDashboard.saveProductsToStorage();
+                    adminDashboard.saveCategoriesToStorage();
+                    adminDashboard.saveOrdersToStorage();
+                    adminDashboard.saveSocialPostsToStorage();
+                    
+                    // Refresh current view
+                    adminDashboard.renderSection(adminDashboard.currentSection);
+                    
+                    showNotification('데이터가 성공적으로 가져오기되었습니다.', 'success');
+                }
+            } catch (error) {
+                console.error('Error importing data:', error);
+                showNotification('데이터 가져오기 중 오류가 발생했습니다. 파일 형식을 확인해주세요.', 'error');
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+// Social Media Management Functions
+function showAddSocialPostModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content max-w-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-thai-green">소셜미디어 포스트 예약</h2>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <form id="add-social-post-form" class="space-y-4">
+                <div>
+                    <label class="form-label">포스트 제목 *</label>
+                    <input type="text" name="title" class="form-input" required placeholder="포스트 제목을 입력하세요">
+                </div>
+                
+                <div>
+                    <label class="form-label">포스트 내용 *</label>
+                    <textarea name="content" class="form-input form-textarea" required placeholder="포스트 내용을 입력하세요"></textarea>
+                </div>
+                
+                <div>
+                    <label class="form-label">게시 플랫폼 *</label>
+                    <div class="flex space-x-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="platforms" value="facebook" class="mr-2">
+                            <i class="fab fa-facebook text-blue-600 mr-1"></i>Facebook
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="platforms" value="instagram" class="mr-2">
+                            <i class="fab fa-instagram text-pink-600 mr-1"></i>Instagram
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="platforms" value="twitter" class="mr-2">
+                            <i class="fab fa-twitter text-blue-400 mr-1"></i>Twitter
+                        </label>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="form-label">예약 시간</label>
+                    <input type="datetime-local" name="scheduled_time" class="form-input">
+                </div>
+                
+                <div>
+                    <label class="form-label">해시태그 (쉼표로 구분)</label>
+                    <input type="text" name="hashtags" class="form-input" placeholder="#태국식물, #희귀식물, #인테리어">
+                </div>
+                
+                <div>
+                    <label class="form-label">이미지 URL (선택사항)</label>
+                    <input type="url" name="image_url" class="form-input" placeholder="https://example.com/image.jpg">
+                </div>
+            </form>
+            
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="closeModal()" 
+                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition duration-300">
+                    취소
+                </button>
+                <button type="button" onclick="submitSocialPost()" 
+                        class="flex-1 bg-plant-green text-white py-3 rounded-lg hover:bg-green-600 transition duration-300">
+                    포스트 예약
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Trigger modal animation
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+}
+
+async function submitSocialPost() {
+    const form = document.getElementById('add-social-post-form');
+    const formData = new FormData(form);
+    
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const platforms = formData.getAll('platforms');
+    if (platforms.length === 0) {
+        showNotification('최소 하나의 플랫폼을 선택해주세요.', 'error');
+        return;
+    }
+    
+    const hashtags = formData.get('hashtags').split(',').map(tag => tag.trim()).filter(tag => tag);
+    
+    const socialPostData = {
+        id: Date.now().toString(),
+        title: formData.get('title'),
+        content: formData.get('content'),
+        platforms: platforms,
+        hashtags: hashtags,
+        image_url: formData.get('image_url'),
+        status: '예약',
+        scheduled_time: formData.get('scheduled_time') || new Date().toISOString(),
+        created_at: new Date().toISOString()
+    };
+    
+    try {
+        // Add to memory
+        adminDashboard.socialPosts.push(socialPostData);
+        
+        // Save to storage
+        adminDashboard.saveSocialPostsToStorage();
+        
+        closeModal();
+        adminDashboard.renderSocialPosts();
+        showNotification('소셜미디어 포스트가 성공적으로 예약되었습니다.', 'success');
+    } catch (error) {
+        console.error('Error adding social post:', error);
+        showNotification('포스트 예약 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+function editSocialPost(postId) {
+    const post = adminDashboard.socialPosts.find(p => p.id === postId);
+    if (!post) {
+        showNotification('포스트를 찾을 수 없습니다.', 'error');
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content max-w-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-thai-green">소셜미디어 포스트 편집</h2>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <form id="edit-social-post-form" class="space-y-4">
+                <input type="hidden" name="id" value="${post.id}">
+                
+                <div>
+                    <label class="form-label">포스트 제목 *</label>
+                    <input type="text" name="title" class="form-input" value="${post.title}" required>
+                </div>
+                
+                <div>
+                    <label class="form-label">포스트 내용 *</label>
+                    <textarea name="content" class="form-input form-textarea" required>${post.content}</textarea>
+                </div>
+                
+                <div>
+                    <label class="form-label">게시 플랫폼 *</label>
+                    <div class="flex space-x-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="platforms" value="facebook" class="mr-2" ${post.platforms?.includes('facebook') ? 'checked' : ''}>
+                            <i class="fab fa-facebook text-blue-600 mr-1"></i>Facebook
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="platforms" value="instagram" class="mr-2" ${post.platforms?.includes('instagram') ? 'checked' : ''}>
+                            <i class="fab fa-instagram text-pink-600 mr-1"></i>Instagram
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="platforms" value="twitter" class="mr-2" ${post.platforms?.includes('twitter') ? 'checked' : ''}>
+                            <i class="fab fa-twitter text-blue-400 mr-1"></i>Twitter
+                        </label>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="form-label">예약 시간</label>
+                    <input type="datetime-local" name="scheduled_time" class="form-input" value="${new Date(post.scheduled_time).toISOString().slice(0, 16)}">
+                </div>
+                
+                <div>
+                    <label class="form-label">해시태그 (쉼표로 구분)</label>
+                    <input type="text" name="hashtags" class="form-input" value="${post.hashtags?.join(', ') || ''}" placeholder="#태국식물, #희귀식물, #인테리어">
+                </div>
+                
+                <div>
+                    <label class="form-label">이미지 URL (선택사항)</label>
+                    <input type="url" name="image_url" class="form-input" value="${post.image_url || ''}" placeholder="https://example.com/image.jpg">
+                </div>
+            </form>
+            
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="closeModal()" 
+                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition duration-300">
+                    취소
+                </button>
+                <button type="button" onclick="updateSocialPost()" 
+                        class="flex-1 bg-plant-green text-white py-3 rounded-lg hover:bg-green-600 transition duration-300">
+                    포스트 수정
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Trigger modal animation
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+}
+
+async function updateSocialPost() {
+    const form = document.getElementById('edit-social-post-form');
+    const formData = new FormData(form);
+    
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const platforms = formData.getAll('platforms');
+    if (platforms.length === 0) {
+        showNotification('최소 하나의 플랫폼을 선택해주세요.', 'error');
+        return;
+    }
+    
+    const hashtags = formData.get('hashtags').split(',').map(tag => tag.trim()).filter(tag => tag);
+    
+    const postId = formData.get('id');
+    const postData = {
+        title: formData.get('title'),
+        content: formData.get('content'),
+        platforms: platforms,
+        hashtags: hashtags,
+        image_url: formData.get('image_url'),
+        scheduled_time: formData.get('scheduled_time')
+    };
+    
+    try {
+        // Update in memory
+        const postIndex = adminDashboard.socialPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+            adminDashboard.socialPosts[postIndex] = {
+                ...adminDashboard.socialPosts[postIndex],
+                ...postData,
+                updated_at: new Date().toISOString()
+            };
+            
+            // Save to storage
+            adminDashboard.saveSocialPostsToStorage();
+            
+            closeModal();
+            adminDashboard.renderSocialPosts();
+            showNotification('소셜미디어 포스트가 성공적으로 수정되었습니다.', 'success');
+        } else {
+            throw new Error('포스트를 찾을 수 없습니다.');
+        }
+    } catch (error) {
+        console.error('Error updating social post:', error);
+        showNotification('포스트 수정 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+function deleteSocialPost(postId) {
+    if (confirm('정말로 이 포스트를 삭제하시겠습니까?\n삭제된 포스트는 복구할 수 없습니다.')) {
+        try {
+            // Remove from memory
+            adminDashboard.socialPosts = adminDashboard.socialPosts.filter(p => p.id !== postId);
+            
+            // Save to storage
+            adminDashboard.saveSocialPostsToStorage();
+            
+            // Re-render social posts
+            adminDashboard.renderSocialPosts();
+            
+            showNotification('소셜미디어 포스트가 성공적으로 삭제되었습니다.', 'success');
+        } catch (error) {
+            console.error('Error deleting social post:', error);
+            showNotification('포스트 삭제 중 오류가 발생했습니다.', 'error');
+        }
+    }
+}
+
+// Media Management Functions
+function viewMedia(mediaId) {
+    const media = adminDashboard.loadMediaFromStorage().find(m => m.id === mediaId);
+    if (!media) {
+        showNotification('미디어를 찾을 수 없습니다.', 'error');
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content max-w-4xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-thai-green">미디어 보기</h2>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="text-center">
+                ${media.type === 'image' ? 
+                    `<img src="${media.url}" alt="${media.name}" class="max-w-full max-h-96 mx-auto rounded-lg">` :
+                    `<video controls class="max-w-full max-h-96 mx-auto rounded-lg">
+                        <source src="${media.url}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>`
+                }
+                
+                <div class="mt-4 text-left">
+                    <h3 class="text-lg font-semibold mb-2">${media.name}</h3>
+                    <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                        <div>
+                            <span class="font-medium">파일 크기:</span>
+                            <span class="ml-2">${adminDashboard.formatFileSize(media.size)}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">파일 타입:</span>
+                            <span class="ml-2">${media.type.toUpperCase()}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">업로드 날짜:</span>
+                            <span class="ml-2">${new Date(media.uploaded_at).toLocaleString('ko-KR')}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium">미디어 ID:</span>
+                            <span class="ml-2 font-mono text-xs">${media.id}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="closeModal()" 
+                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition duration-300">
+                    닫기
+                </button>
+                <button type="button" onclick="copyMediaUrl('${media.url}')" 
+                        class="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-300">
+                    URL 복사
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Trigger modal animation
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+}
+
+function copyMediaUrl(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        showNotification('미디어 URL이 클립보드에 복사되었습니다.', 'success');
+    }).catch(() => {
+        showNotification('URL 복사에 실패했습니다.', 'error');
+    });
+}
+
+function deleteMedia(mediaId) {
+    if (confirm('정말로 이 미디어를 삭제하시겠습니까?\n삭제된 미디어는 복구할 수 없습니다.')) {
+        try {
+            const media = adminDashboard.loadMediaFromStorage();
+            const updatedMedia = media.filter(m => m.id !== mediaId);
+            
+            adminDashboard.saveMediaToStorage(updatedMedia);
+            adminDashboard.renderMediaGallery();
+            
+            showNotification('미디어가 성공적으로 삭제되었습니다.', 'success');
+        } catch (error) {
+            console.error('Error deleting media:', error);
+            showNotification('미디어 삭제 중 오류가 발생했습니다.', 'error');
+        }
+    }
+}
+
+// Modal utility functions
+function closeModal() {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        modal.classList.remove('show');
+        setTimeout(() => {
+            modal.remove();
+        }, 300);
+    });
+}
+
+// Notification system
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+        <div class="flex items-center">
+            <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            notification.remove();
+        }, 300);
+    }, 3000);
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal')) {
+        closeModal();
+    }
+});
+
+// Close modal with Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal();
+    }
+});
+
+// Event delegation for dynamically created modals
+document.addEventListener('click', function(e) {
+    // Close button click
+    if (e.target.closest('[onclick*="closeModal"]')) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeModal();
+    }
+    
+    // Cancel button click
+    if (e.target.closest('[onclick*="closeModal"]')) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeModal();
+    }
+});
 
 // Initialize admin dashboard
 let adminDashboard;

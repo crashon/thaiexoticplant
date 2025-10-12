@@ -61,42 +61,49 @@
                         <a href="#dashboard" onclick="showSection('dashboard')" 
                            class="nav-link active flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
                             <i class="fas fa-chart-line"></i>
-                            <span>대시보드</span>
+                            <span data-i18n="navigation.dashboard">대시보드</span>
                         </a>
                     </li>
                     <li>
                         <a href="#products" onclick="showSection('products')" 
                            class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
                             <i class="fas fa-seedling"></i>
-                            <span>상품 관리</span>
+                            <span data-i18n="navigation.products">상품 관리</span>
                         </a>
                     </li>
                     <li>
                         <a href="#categories" onclick="showSection('categories')" 
                            class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
                             <i class="fas fa-tags"></i>
-                            <span>카테고리 관리</span>
+                            <span data-i18n="navigation.categories">카테고리 관리</span>
                         </a>
                     </li>
                     <li>
                         <a href="#orders" onclick="showSection('orders')" 
                            class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
                             <i class="fas fa-shopping-cart"></i>
-                            <span>주문 관리</span>
+                            <span data-i18n="navigation.orders">주문 관리</span>
                         </a>
                     </li>
                     <li>
                         <a href="#social" onclick="showSection('social')" 
                            class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
                             <i class="fas fa-share-alt"></i>
-                            <span>소셜미디어</span>
+                            <span data-i18n="navigation.social">소셜미디어</span>
                         </a>
                     </li>
                     <li>
                         <a href="#media" onclick="showSection('media')" 
                            class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
                             <i class="fas fa-images"></i>
-                            <span>미디어 관리</span>
+                            <span data-i18n="navigation.media">미디어 관리</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#analytics" onclick="showSection('analytics')" 
+                           class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
+                            <i class="fas fa-chart-line"></i>
+                            <span data-i18n="navigation.analytics">소셜미디어 분석</span>
                         </a>
                     </li>
                 </ul>
@@ -108,7 +115,7 @@
             <!-- Dashboard Section -->
             <section id="dashboard-section" class="admin-section">
                 <div class="mb-8">
-                    <h2 class="text-3xl font-bold text-thai-green mb-2">대시보드</h2>
+                    <h2 class="text-3xl font-bold text-thai-green mb-2" data-i18n="dashboard.title">대시보드</h2>
                     <p class="text-gray-600">Thai Exotic Plants 쇼핑몰 현황을 한눈에 확인하세요</p>
                 </div>
 
@@ -181,7 +188,7 @@
             <section id="products-section" class="admin-section hidden">
                 <div class="mb-8 flex justify-between items-center">
                     <div>
-                        <h2 class="text-3xl font-bold text-thai-green mb-2">상품 관리</h2>
+                        <h2 class="text-3xl font-bold text-thai-green mb-2" data-i18n="products.title">상품 관리</h2>
                         <p class="text-gray-600">상품을 추가, 수정, 삭제할 수 있습니다</p>
                     </div>
                     <button onclick="showAddProductModal()" 
@@ -215,6 +222,12 @@
                             <button onclick="exportProducts()" 
                                     class="w-full bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition duration-200">
                                 <i class="fas fa-download mr-2"></i>내보내기
+                            </button>
+                        </div>
+                        <div>
+                            <button onclick="importData()" 
+                                    class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition duration-200">
+                                <i class="fas fa-upload mr-2"></i>가져오기
                             </button>
                         </div>
                     </div>
@@ -268,8 +281,8 @@
             <section id="categories-section" class="admin-section hidden">
                 <div class="mb-8 flex justify-between items-center">
                     <div>
-                        <h2 class="text-3xl font-bold text-thai-green mb-2">카테고리 관리</h2>
-                        <p class="text-gray-600">상품 카테고리를 관리하고 정리할 수 있습니다</p>
+                        <h2 class="text-3xl font-bold text-thai-green mb-2" data-i18n="categories.title">카테고리 관리</h2>
+                        <p class="text-gray-600" data-i18n="categories.subtitle">상품 카테고리를 관리하고 정리할 수 있습니다</p>
                     </div>
                     <button onclick="showAddCategoryModal()" 
                             class="bg-plant-green text-white px-6 py-3 rounded-lg hover:bg-green-600 transition duration-300">
@@ -285,8 +298,8 @@
             <!-- Orders Section -->
             <section id="orders-section" class="admin-section hidden">
                 <div class="mb-8">
-                    <h2 class="text-3xl font-bold text-thai-green mb-2">주문 관리</h2>
-                    <p class="text-gray-600">고객 주문을 확인하고 관리할 수 있습니다</p>
+                    <h2 class="text-3xl font-bold text-thai-green mb-2" data-i18n="orders.title">주문 관리</h2>
+                    <p class="text-gray-600" data-i18n="orders.subtitle">고객 주문을 확인하고 관리할 수 있습니다</p>
                 </div>
 
                 <!-- Order Filters -->
@@ -355,8 +368,8 @@
             <section id="social-section" class="admin-section hidden">
                 <div class="mb-8 flex justify-between items-center">
                     <div>
-                        <h2 class="text-3xl font-bold text-thai-green mb-2">소셜미디어 관리</h2>
-                        <p class="text-gray-600">페이스북, 인스타그램, 트위터 자동 포스팅을 관리하세요</p>
+                        <h2 class="text-3xl font-bold text-thai-green mb-2" data-i18n="social.title">소셜미디어 관리</h2>
+                        <p class="text-gray-600" data-i18n="social.subtitle">페이스북, 인스타그램, 트위터 자동 포스팅을 관리하세요</p>
                     </div>
                     <button onclick="showAddSocialPostModal()" 
                             class="bg-plant-green text-white px-6 py-3 rounded-lg hover:bg-green-600 transition duration-300">
@@ -409,8 +422,8 @@
             <!-- Media Section -->
             <section id="media-section" class="admin-section hidden">
                 <div class="mb-8">
-                    <h2 class="text-3xl font-bold text-thai-green mb-2">미디어 관리</h2>
-                    <p class="text-gray-600">이미지와 동영상을 업로드하고 관리하세요</p>
+                    <h2 class="text-3xl font-bold text-thai-green mb-2" data-i18n="media.title">미디어 관리</h2>
+                    <p class="text-gray-600" data-i18n="media.subtitle">이미지와 동영상을 업로드하고 관리하세요</p>
                 </div>
 
                 <!-- Upload Area -->
@@ -445,15 +458,28 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Analytics Section -->
+            <section id="analytics-section" class="admin-section hidden">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-thai-green mb-2" data-i18n="analytics.title">소셜미디어 분석</h2>
+                    <p class="text-gray-600">소셜미디어 성과를 분석하고 인사이트를 확인하세요</p>
+                </div>
+                <!-- Analytics content will be loaded here by JavaScript -->
+            </section>
         </main>
     </div>
 
     <!-- Modals will be inserted here by JavaScript -->
 
     <!-- Scripts -->
+    <script src="js/i18n.js"></script>
     <script src="js/main.js"></script>
     <script src="js/admin.js"></script>
     <script src="js/social-media.js"></script>
     <script src="js/media-manager.js"></script>
+    <script src="js/social-automation.js"></script>
+    <script src="js/social-api-simulator.js"></script>
+    <script src="js/social-analytics.js"></script>
 </body>
 </html>
