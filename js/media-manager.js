@@ -89,14 +89,62 @@ class MediaManager {
     // Load media items
     async loadMediaItems() {
         try {
-            // In a real implementation, this would load from a media table or file storage
-            // For now, we'll use a mock dataset
-            this.mediaItems = await this.getMockMediaItems();
+            // Load from localStorage first
+            const stored = this.loadMediaFromStorage();
+            
+            if (stored && stored.length > 0) {
+                // Convert stored items to match expected format
+                this.mediaItems = stored.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    url: item.url,
+                    type: item.type,
+                    size: item.size,
+                    uploadDate: item.uploaded_at ? new Date(item.uploaded_at).getTime() : item.uploadDate || Date.now(),
+                    alt: item.alt || item.name.split('.')[0],
+                    tags: item.tags || []
+                }));
+            } else {
+                // Fall back to mock data if no stored items
+                this.mediaItems = await this.getMockMediaItems();
+            }
+            
             this.renderMediaGallery();
         } catch (error) {
             console.error('Error loading media items:', error);
             this.mediaItems = [];
             this.renderMediaGallery();
+        }
+    }
+    
+    // Load media from localStorage
+    loadMediaFromStorage() {
+        try {
+            const stored = localStorage.getItem('thaiPlantsMedia');
+            return stored ? JSON.parse(stored) : [];
+        } catch (error) {
+            console.error('Error loading media from storage:', error);
+            return [];
+        }
+    }
+    
+    // Save media to localStorage
+    saveMediaToStorage() {
+        try {
+            // Convert mediaItems to storage format
+            const storageItems = this.mediaItems.map(item => ({
+                id: item.id,
+                name: item.name,
+                url: item.url,
+                type: item.type,
+                size: item.size,
+                uploaded_at: item.uploadDate ? new Date(item.uploadDate).toISOString() : new Date().toISOString(),
+                alt: item.alt,
+                tags: item.tags
+            }));
+            localStorage.setItem('thaiPlantsMedia', JSON.stringify(storageItems));
+        } catch (error) {
+            console.error('Error saving media to storage:', error);
         }
     }
 
@@ -240,11 +288,13 @@ class MediaManager {
         // Simulate upload process
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // In a real implementation, this would upload to a server or cloud storage
+        // Convert file to base64 for persistent storage
+        const base64 = await this.fileToBase64(file);
+        
         const mediaItem = {
             id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
             name: file.name,
-            url: URL.createObjectURL(file), // Temporary URL for demo
+            url: base64, // Use base64 instead of temporary URL
             type: file.type.startsWith('image/') ? 'image' : 'video',
             size: file.size,
             uploadDate: Date.now(),
@@ -253,7 +303,21 @@ class MediaManager {
         };
 
         this.mediaItems.unshift(mediaItem);
+        
+        // Save to localStorage
+        this.saveMediaToStorage();
+        
         return mediaItem;
+    }
+    
+    // Convert file to base64
+    fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
     }
 
     // Set filter
@@ -672,6 +736,9 @@ class MediaManager {
             tags: formData.get('tags') ? formData.get('tags').split(',').map(tag => tag.trim()) : []
         };
 
+        // Save changes to localStorage
+        this.saveMediaToStorage();
+
         showNotification('미디어 정보가 업데이트되었습니다.', 'success');
         closeModal();
         this.renderMediaGallery();
@@ -683,6 +750,9 @@ class MediaManager {
 
         this.mediaItems = this.mediaItems.filter(item => item.id !== itemId);
         this.selectedItems = this.selectedItems.filter(id => id !== itemId);
+        
+        // Save changes to localStorage
+        this.saveMediaToStorage();
         
         showNotification('미디어가 삭제되었습니다.', 'success');
         this.renderMediaGallery();
@@ -708,6 +778,9 @@ class MediaManager {
         this.mediaItems = this.mediaItems.filter(item => !this.selectedItems.includes(item.id));
         const deletedCount = this.selectedItems.length;
         this.selectedItems = [];
+        
+        // Save changes to localStorage
+        this.saveMediaToStorage();
         
         showNotification(`${deletedCount}개 미디어가 삭제되었습니다.`, 'success');
         this.renderMediaGallery();
