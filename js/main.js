@@ -59,10 +59,27 @@ async function loadCategories() {
         const response = await fetch('tables/categories?limit=100');
         const result = await response.json();
         categories = result.data;
+        // Save to localStorage for persistence
+        localStorage.setItem('thaiPlantsCategories', JSON.stringify(categories));
         renderCategories();
     } catch (error) {
         console.error('Error loading categories:', error);
-        // Load default categories if API fails
+        // Load from localStorage first, then default if not found
+        loadCategoriesFromStorage();
+    }
+}
+
+function loadCategoriesFromStorage() {
+    try {
+        const stored = localStorage.getItem('thaiPlantsCategories');
+        if (stored) {
+            categories = JSON.parse(stored);
+            renderCategories();
+        } else {
+            loadDefaultCategories();
+        }
+    } catch (error) {
+        console.error('Error loading categories from storage:', error);
         loadDefaultCategories();
     }
 }
@@ -124,17 +141,36 @@ async function loadProducts(page = 1, filter = 'all') {
         
         if (page === 1) {
             products = result.data;
+            // Save to localStorage for persistence
+            localStorage.setItem('thaiPlantsProducts', JSON.stringify(products));
         } else {
             products = [...products, ...result.data];
+            // Update localStorage with new products
+            localStorage.setItem('thaiPlantsProducts', JSON.stringify(products));
         }
         
         renderProducts();
     } catch (error) {
         console.error('Error loading products:', error);
-        // Load default products if API fails
+        // Load from localStorage first, then default if not found
         if (page === 1) {
+            loadProductsFromStorage();
+        }
+    }
+}
+
+function loadProductsFromStorage() {
+    try {
+        const stored = localStorage.getItem('thaiPlantsProducts');
+        if (stored) {
+            products = JSON.parse(stored);
+            renderProducts();
+        } else {
             loadDefaultProducts();
         }
+    } catch (error) {
+        console.error('Error loading products from storage:', error);
+        loadDefaultProducts();
     }
 }
 

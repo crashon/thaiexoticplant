@@ -89,14 +89,31 @@ class MediaManager {
     // Load media items
     async loadMediaItems() {
         try {
-            // In a real implementation, this would load from a media table or file storage
-            // For now, we'll use a mock dataset
+            // Try to load from localStorage first
+            const stored = localStorage.getItem('thaiPlantsMediaItems');
+            if (stored) {
+                this.mediaItems = JSON.parse(stored);
+                this.renderMediaGallery();
+                return;
+            }
+            
+            // If no stored data, load mock data and save to localStorage
             this.mediaItems = await this.getMockMediaItems();
+            this.saveMediaItems();
             this.renderMediaGallery();
         } catch (error) {
             console.error('Error loading media items:', error);
             this.mediaItems = [];
             this.renderMediaGallery();
+        }
+    }
+
+    // Save media items to localStorage
+    saveMediaItems() {
+        try {
+            localStorage.setItem('thaiPlantsMediaItems', JSON.stringify(this.mediaItems));
+        } catch (error) {
+            console.error('Error saving media items:', error);
         }
     }
 
@@ -226,7 +243,7 @@ class MediaManager {
             }, 2000);
 
             showNotification(`${files.length}개 파일이 성공적으로 업로드되었습니다.`, 'success');
-            await this.loadMediaItems();
+            this.renderMediaGallery();
 
         } catch (error) {
             console.error('Upload error:', error);
@@ -253,6 +270,10 @@ class MediaManager {
         };
 
         this.mediaItems.unshift(mediaItem);
+        
+        // Save changes to localStorage
+        this.saveMediaItems();
+        
         return mediaItem;
     }
 
@@ -684,6 +705,9 @@ class MediaManager {
         this.mediaItems = this.mediaItems.filter(item => item.id !== itemId);
         this.selectedItems = this.selectedItems.filter(id => id !== itemId);
         
+        // Save changes to localStorage
+        this.saveMediaItems();
+        
         showNotification('미디어가 삭제되었습니다.', 'success');
         this.renderMediaGallery();
     }
@@ -708,6 +732,9 @@ class MediaManager {
         this.mediaItems = this.mediaItems.filter(item => !this.selectedItems.includes(item.id));
         const deletedCount = this.selectedItems.length;
         this.selectedItems = [];
+        
+        // Save changes to localStorage
+        this.saveMediaItems();
         
         showNotification(`${deletedCount}개 미디어가 삭제되었습니다.`, 'success');
         this.renderMediaGallery();
