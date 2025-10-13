@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shops - Thai Exotic Plants</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'noto': ['Noto Sans KR', 'sans-serif']
+                    },
+                    colors: {
+                        'thai-green': '#2d5016',
+                        'thai-gold': '#ffd700',
+                        'plant-green': '#4ade80'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .shop-card{transition:transform .2s ease, box-shadow .2s ease}
+        .shop-card:hover{transform:translateY(-2px); box-shadow:0 10px 20px rgba(0,0,0,.08)}
+    </style>
+    <script defer src="js/shop.js"></script>
+</head>
+<body class="font-noto bg-gray-50">
+    <header class="bg-white shadow-lg fixed w-full top-0 z-50">
+        <nav class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-seedling text-3xl text-plant-green"></i>
+                    <div>
+                        <a href="index.html" class="text-xl font-bold text-thai-green">Thai Exotic Plants</a>
+                        <p class="text-sm text-gray-600">태국 특이식물 전문 쇼핑몰</p>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center space-x-6">
+                    <a href="index.html" class="text-gray-700 hover:text-plant-green">홈</a>
+                    <a href="index.html#products" class="text-gray-700 hover:text-plant-green">상품보기</a>
+                    <a href="index.html#categories" class="text-gray-700 hover:text-plant-green">카테고리</a>
+                    <a href="shops.html" class="text-plant-green font-semibold">샵</a>
+                    <a href="admin.html" class="text-gray-700 hover:text-plant-green">관리자</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="pt-24">
+        <section class="container mx-auto px-4 py-8">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                <h1 class="text-3xl font-bold text-thai-green">샵 목록</h1>
+                <div class="flex gap-2">
+                    <input id="shop-search" type="text" placeholder="샵 이름 검색" class="w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                    <select id="shop-filter-active" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                        <option value="all">전체</option>
+                        <option value="active">활성</option>
+                        <option value="inactive">비활성</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="shops-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- Shops will render here -->
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-900 text-white py-12 mt-8">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center space-x-3 mb-6">
+                <i class="fas fa-seedling text-2xl text-plant-green"></i>
+                <span class="text-xl font-bold">Thai Exotic Plants</span>
+            </div>
+            <p class="text-gray-400">&copy; 2024 Thai Exotic Plants. 모든 권리 보유.</p>
+        </div>
+    </footer>
+</body>
+</html>
+
