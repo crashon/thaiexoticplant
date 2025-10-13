@@ -9,6 +9,7 @@ class AdminDashboard {
         this.categories = [];
         this.orders = [];
         this.socialPosts = [];
+        this.shops = [];
     }
 
     async initialize() {
@@ -105,12 +106,13 @@ class AdminDashboard {
 
     async loadInitialData() {
         try {
-            await Promise.all([
-                this.loadProducts(),
-                this.loadCategories(),
-                this.loadOrders(),
-                this.loadSocialPosts()
-            ]);
+        await Promise.all([
+            this.loadProducts(),
+            this.loadCategories(),
+            this.loadOrders(),
+            this.loadSocialPosts(),
+            this.loadShops()
+        ]);
         } catch (error) {
             console.error('Error loading initial data:', error);
             showNotification('데이터 로딩 중 오류가 발생했습니다.', 'error');
@@ -519,6 +521,9 @@ class AdminDashboard {
             case 'social':
                 this.renderSocialPosts();
                 break;
+            case 'shops':
+                this.renderShops();
+                break;
             case 'media':
                 this.renderMediaGallery();
                 break;
@@ -834,6 +839,143 @@ class AdminDashboard {
                         <button onclick="deleteSocialPost('${post.id}')" 
                                 class="text-red-600 hover:text-red-800">
                             <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Shop management methods
+    async loadShops() {
+        try {
+            const response = await fetch('tables/shops?limit=100');
+            if (response.ok) {
+                const result = await response.json();
+                this.shops = result.data || [];
+            } else {
+                throw new Error('API not available');
+            }
+        } catch (error) {
+            console.error('Error loading shops from API:', error);
+            this.loadShopsFromStorage();
+        }
+    }
+
+    loadShopsFromStorage() {
+        try {
+            const stored = localStorage.getItem('thaiPlantsShops');
+            if (stored) {
+                this.shops = JSON.parse(stored);
+            } else {
+                this.shops = this.getDefaultShops();
+                this.saveShopsToStorage();
+            }
+        } catch (error) {
+            console.error('Error loading shops from storage:', error);
+            this.shops = this.getDefaultShops();
+        }
+    }
+
+    saveShopsToStorage() {
+        try {
+            localStorage.setItem('thaiPlantsShops', JSON.stringify(this.shops));
+        } catch (error) {
+            console.error('Error saving shops to storage:', error);
+        }
+    }
+
+    getDefaultShops() {
+        return [
+            {
+                id: 's1',
+                name: 'Bangkok Rare Aroids',
+                description: '방콕 희귀 아로이드 전문 샵',
+                owner_id: 'owner1',
+                owner_name: 'Anan',
+                contact: 'anan@bangkokaroids.com',
+                address: 'Bangkok, Thailand',
+                image_url: 'https://images.unsplash.com/photo-1586015555751-63b6062a39fd?w=800',
+                is_active: true,
+                created_at: new Date().toISOString()
+            },
+            {
+                id: 's2',
+                name: 'Chiang Mai Succulents',
+                description: '치앙마이 다육/선인장 샵',
+                owner_id: 'owner2',
+                owner_name: 'Nok',
+                contact: 'nok@chiangmaisucculents.com',
+                address: 'Chiang Mai, Thailand',
+                image_url: 'https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?w=800',
+                is_active: true,
+                created_at: new Date().toISOString()
+            },
+            {
+                id: 's3',
+                name: 'Phuket Tropicals',
+                description: '푸켓 열대 관엽 전문',
+                owner_id: 'owner3',
+                owner_name: 'Mali',
+                contact: 'mali@phukettropicals.com',
+                address: 'Phuket, Thailand',
+                image_url: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800',
+                is_active: false,
+                created_at: new Date().toISOString()
+            }
+        ];
+    }
+
+    renderShops() {
+        const container = document.getElementById('shops-grid-admin');
+        if (!container) return;
+
+        if (this.shops.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full text-center py-12">
+                    <i class="fas fa-store-slash text-6xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500 text-lg">등록된 샵이 없습니다.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = this.shops.map(shop => `
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="h-48 bg-gray-200">
+                    <img src="${shop.image_url || 'https://images.unsplash.com/photo-1586015555751-63b6062a39fd?w=800'}" 
+                         alt="${shop.name}" class="w-full h-full object-cover">
+                </div>
+                <div class="p-6">
+                    <div class="flex items-start justify-between mb-3">
+                        <h3 class="text-xl font-semibold text-gray-800">${shop.name}</h3>
+                        <span class="px-2 py-1 text-xs rounded ${shop.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-700'}">
+                            ${shop.is_active ? '활성' : '비활성'}
+                        </span>
+                    </div>
+                    <p class="text-gray-600 mb-3 line-clamp-2">${shop.description}</p>
+                    <div class="space-y-2 text-sm text-gray-500 mb-4">
+                        <div class="flex items-center">
+                            <i class="fas fa-user w-4 mr-2"></i>
+                            <span>${shop.owner_name || '미지정'}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-envelope w-4 mr-2"></i>
+                            <span>${shop.contact || '-'}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-map-marker-alt w-4 mr-2"></i>
+                            <span>${shop.address || '-'}</span>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="editShop('${shop.id}')" 
+                                class="flex-1 bg-blue-100 text-blue-700 px-3 py-2 rounded text-sm hover:bg-blue-200 transition duration-200">
+                            <i class="fas fa-edit mr-1"></i>수정
+                        </button>
+                        <button onclick="deleteShop('${shop.id}')" 
+                                class="flex-1 bg-red-100 text-red-700 px-3 py-2 rounded text-sm hover:bg-red-200 transition duration-200">
+                            <i class="fas fa-trash mr-1"></i>삭제
                         </button>
                     </div>
                 </div>
@@ -2365,6 +2507,271 @@ document.addEventListener('click', function(e) {
         closeModal();
     }
 });
+
+// Shop management global functions
+function showAddShopModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-thai-green">샵 추가</h2>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <form id="add-shop-form" class="space-y-4">
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label class="form-label">샵 이름 *</label>
+                        <input type="text" name="name" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">오너 이름 *</label>
+                        <input type="text" name="owner_name" class="form-input" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">샵 설명 *</label>
+                    <textarea name="description" class="form-input form-textarea" required></textarea>
+                </div>
+                
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label class="form-label">연락처 *</label>
+                        <input type="email" name="contact" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">주소</label>
+                        <input type="text" name="address" class="form-input">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">이미지 URL</label>
+                    <input type="url" name="image_url" class="form-input" placeholder="https://example.com/image.jpg">
+                </div>
+                
+                <div class="form-group">
+                    <label class="flex items-center">
+                        <input type="checkbox" name="is_active" checked class="mr-2">
+                        <span>활성 상태</span>
+                    </label>
+                </div>
+            </form>
+            
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="closeModal()" 
+                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition duration-300">
+                    취소
+                </button>
+                <button type="button" onclick="submitShop()" 
+                        class="flex-1 bg-plant-green text-white py-3 rounded-lg hover:bg-green-600 transition duration-300">
+                    샵 추가
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Trigger modal animation
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+}
+
+async function submitShop() {
+    const form = document.getElementById('add-shop-form');
+    const formData = new FormData(form);
+    
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const shopData = {
+        id: Date.now().toString(),
+        name: formData.get('name'),
+        description: formData.get('description'),
+        owner_name: formData.get('owner_name'),
+        owner_id: 'owner_' + Date.now(),
+        contact: formData.get('contact'),
+        address: formData.get('address'),
+        image_url: formData.get('image_url'),
+        is_active: formData.get('is_active') === 'on',
+        created_at: new Date().toISOString()
+    };
+    
+    try {
+        // Add to memory
+        adminDashboard.shops.push(shopData);
+        
+        // Save to storage
+        adminDashboard.saveShopsToStorage();
+        
+        closeModal();
+        adminDashboard.renderShops();
+        showNotification('샵이 성공적으로 추가되었습니다.', 'success');
+    } catch (error) {
+        console.error('Error adding shop:', error);
+        showNotification('샵 추가 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+function editShop(shopId) {
+    const shop = adminDashboard.shops.find(s => s.id === shopId);
+    if (!shop) {
+        showNotification('샵을 찾을 수 없습니다.', 'error');
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-thai-green">샵 수정</h2>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <form id="edit-shop-form" class="space-y-4">
+                <input type="hidden" name="id" value="${shop.id}">
+                
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label class="form-label">샵 이름 *</label>
+                        <input type="text" name="name" class="form-input" value="${shop.name}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">오너 이름 *</label>
+                        <input type="text" name="owner_name" class="form-input" value="${shop.owner_name}" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">샵 설명 *</label>
+                    <textarea name="description" class="form-input form-textarea" required>${shop.description}</textarea>
+                </div>
+                
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label class="form-label">연락처 *</label>
+                        <input type="email" name="contact" class="form-input" value="${shop.contact}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">주소</label>
+                        <input type="text" name="address" class="form-input" value="${shop.address || ''}">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">이미지 URL</label>
+                    <input type="url" name="image_url" class="form-input" value="${shop.image_url || ''}" placeholder="https://example.com/image.jpg">
+                </div>
+                
+                <div class="form-group">
+                    <label class="flex items-center">
+                        <input type="checkbox" name="is_active" ${shop.is_active ? 'checked' : ''} class="mr-2">
+                        <span>활성 상태</span>
+                    </label>
+                </div>
+            </form>
+            
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="closeModal()" 
+                        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition duration-300">
+                    취소
+                </button>
+                <button type="button" onclick="updateShop()" 
+                        class="flex-1 bg-plant-green text-white py-3 rounded-lg hover:bg-green-600 transition duration-300">
+                    샵 수정
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Trigger modal animation
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+}
+
+async function updateShop() {
+    const form = document.getElementById('edit-shop-form');
+    const formData = new FormData(form);
+    
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const shopId = formData.get('id');
+    const shopData = {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        owner_name: formData.get('owner_name'),
+        contact: formData.get('contact'),
+        address: formData.get('address'),
+        image_url: formData.get('image_url'),
+        is_active: formData.get('is_active') === 'on'
+    };
+    
+    try {
+        const shopIndex = adminDashboard.shops.findIndex(s => s.id === shopId);
+        if (shopIndex !== -1) {
+            adminDashboard.shops[shopIndex] = {
+                ...adminDashboard.shops[shopIndex],
+                ...shopData
+            };
+            
+            // Save to storage
+            adminDashboard.saveShopsToStorage();
+            
+            closeModal();
+            adminDashboard.renderShops();
+            showNotification('샵이 성공적으로 수정되었습니다.', 'success');
+        } else {
+            throw new Error('샵을 찾을 수 없습니다.');
+        }
+    } catch (error) {
+        console.error('Error updating shop:', error);
+        showNotification('샵 수정 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+function deleteShop(shopId) {
+    if (confirm('정말로 이 샵을 삭제하시겠습니까?\n삭제된 샵은 복구할 수 없습니다.')) {
+        try {
+            // Check if any products are using this shop
+            const productsInShop = adminDashboard.products.filter(p => p.shop_id === shopId);
+            if (productsInShop.length > 0) {
+                showNotification(`이 샵을 사용하는 상품이 ${productsInShop.length}개 있습니다. 먼저 상품의 샵을 변경해주세요.`, 'error');
+                return;
+            }
+            
+            // Remove from memory
+            adminDashboard.shops = adminDashboard.shops.filter(s => s.id !== shopId);
+            
+            // Save to storage
+            adminDashboard.saveShopsToStorage();
+            
+            // Re-render shops
+            adminDashboard.renderShops();
+            
+            showNotification('샵이 성공적으로 삭제되었습니다.', 'success');
+        } catch (error) {
+            console.error('Error deleting shop:', error);
+            showNotification('샵 삭제 중 오류가 발생했습니다.', 'error');
+        }
+    }
+}
 
 // Initialize admin dashboard
 let adminDashboard;

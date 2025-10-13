@@ -86,6 +86,13 @@
                         </a>
                     </li>
                     <li>
+                        <a href="#shops" onclick="showSection('shops')" 
+                           class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
+                            <i class="fas fa-store"></i>
+                            <span data-i18n="navigation.shops">샵 관리</span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="#social" onclick="showSection('social')" 
                            class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
                             <i class="fas fa-share-alt"></i>
@@ -361,6 +368,55 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </section>
+
+            <!-- Shops Section -->
+            <section id="shops-section" class="admin-section hidden">
+                <div class="mb-8 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-3xl font-bold text-thai-green mb-2" data-i18n="shops.title">샵 관리</h2>
+                        <p class="text-gray-600" data-i18n="shops.subtitle">샵을 등록하고 관리할 수 있습니다</p>
+                    </div>
+                    <button onclick="showAddShopModal()" 
+                            class="bg-plant-green text-white px-6 py-3 rounded-lg hover:bg-green-600 transition duration-300">
+                        <i class="fas fa-plus mr-2"></i>샵 추가
+                    </button>
+                </div>
+
+                <!-- Search and Filter -->
+                <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">샵 검색</label>
+                            <input type="text" id="shop-search-admin" placeholder="샵 이름으로 검색..." 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">상태 필터</label>
+                            <select id="shop-status-filter" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                                <option value="all">전체</option>
+                                <option value="active">활성</option>
+                                <option value="inactive">비활성</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">정렬</label>
+                            <select id="shop-sort-admin" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                                <option value="name-asc">이름 (가-하)</option>
+                                <option value="name-desc">이름 (하-가)</option>
+                                <option value="created-desc">최신순</option>
+                                <option value="created-asc">오래된순</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shops Grid -->
+                <div id="shops-grid-admin" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Shops will be loaded here -->
                 </div>
             </section>
 
