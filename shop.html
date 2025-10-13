@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop Detail - Thai Exotic Plants</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script defer src="js/shop.js"></script>
+</head>
+<body class="font-noto bg-gray-50">
+    <header class="bg-white shadow-lg fixed w-full top-0 z-50">
+        <nav class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-seedling text-3xl text-plant-green"></i>
+                    <div>
+                        <a href="index.html" class="text-xl font-bold text-thai-green">Thai Exotic Plants</a>
+                        <p class="text-sm text-gray-600">태국 특이식물 전문 쇼핑몰</p>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center space-x-6">
+                    <a href="index.html" class="text-gray-700 hover:text-plant-green">홈</a>
+                    <a href="shops.html" class="text-gray-700 hover:text-plant-green">샵</a>
+                    <a href="admin.html" class="text-gray-700 hover:text-plant-green">관리자</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="pt-24">
+        <section class="container mx-auto px-4 py-8">
+            <div id="shop-hero" class="bg-white rounded-xl shadow overflow-hidden">
+                <div id="shop-hero-image" class="h-40 bg-gray-200"></div>
+                <div class="p-6">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h1 id="shop-name" class="text-3xl font-bold text-thai-green">샵</h1>
+                            <p id="shop-desc" class="text-gray-600 mt-2">설명</p>
+                            <div class="flex flex-wrap gap-3 text-sm text-gray-500 mt-3">
+                                <div class="flex items-center gap-2"><i class="fas fa-user"></i><span id="shop-owner">-</span></div>
+                                <div class="flex items-center gap-2"><i class="fas fa-envelope"></i><span id="shop-contact">-</span></div>
+                                <div class="flex items-center gap-2"><i class="fas fa-map-marker-alt"></i><span id="shop-address">-</span></div>
+                            </div>
+                        </div>
+                        <div id="shop-status" class="shrink-0"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex items-center justify-between">
+                <h2 class="text-2xl font-semibold text-gray-800">상품</h2>
+                <div class="flex gap-2">
+                    <input id="shop-products-search" type="text" placeholder="샵 상품 검색" class="w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                    <select id="shop-products-sort" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                        <option value="created_at-desc">최신순</option>
+                        <option value="price-asc">가격 낮은순</option>
+                        <option value="price-desc">가격 높은순</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="shop-products-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
+                <!-- Products render here -->
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-900 text-white py-12 mt-8">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center space-x-3 mb-6">
+                <i class="fas fa-seedling text-2xl text-plant-green"></i>
+                <span class="text-xl font-bold">Thai Exotic Plants</span>
+            </div>
+            <p class="text-gray-400">&copy; 2024 Thai Exotic Plants. 모든 권리 보유.</p>
+        </div>
+    </footer>
+    <script>
+        // Minimal bootstrap: let shop.js know this is detail page
+        window.__SHOP_DETAIL__ = true;
+    </script>
+</body>
+</html>
+

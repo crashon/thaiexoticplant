@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop Owner Dashboard - Thai Exotic Plants</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script defer src="js/shop-owner.js"></script>
+</head>
+<body class="font-noto bg-gray-50">
+    <header class="bg-white shadow-lg fixed w-full top-0 z-50">
+        <nav class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-seedling text-3xl text-plant-green"></i>
+                    <div>
+                        <a href="index.html" class="text-xl font-bold text-thai-green">Thai Exotic Plants</a>
+                        <p class="text-sm text-gray-600">샵 오너 대시보드</p>
+                    </div>
+                </div>
+                <div class="hidden md:flex items-center space-x-6">
+                    <a href="index.html" class="text-gray-700 hover:text-plant-green">홈</a>
+                    <a href="shops.html" class="text-gray-700 hover:text-plant-green">샵</a>
+                    <a href="admin.html" class="text-gray-700 hover:text-plant-green">관리자</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="pt-24">
+        <section class="container mx-auto px-4 py-8">
+            <h1 class="text-3xl font-bold text-thai-green mb-6">샵 오너 대시보드</h1>
+
+            <div class="grid lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-xl shadow p-5">
+                    <div class="text-sm text-gray-500">오늘 매출</div>
+                    <div id="metric-today" class="mt-2 text-2xl font-bold">- ฿</div>
+                </div>
+                <div class="bg-white rounded-xl shadow p-5">
+                    <div class="text-sm text-gray-500">이번달 매출</div>
+                    <div id="metric-month" class="mt-2 text-2xl font-bold">- ฿</div>
+                </div>
+                <div class="bg-white rounded-xl shadow p-5">
+                    <div class="text-sm text-gray-500">상품 수</div>
+                    <div id="metric-products" class="mt-2 text-2xl font-bold">-</div>
+                </div>
+                <div class="bg-white rounded-xl shadow p-5">
+                    <div class="text-sm text-gray-500">재고 경고</div>
+                    <div id="metric-lowstock" class="mt-2 text-2xl font-bold">-</div>
+                </div>
+            </div>
+
+            <div class="grid lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white rounded-xl shadow p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold">매출 추이</h2>
+                        <select id="sales-range" class="px-2 py-1 border rounded">
+                            <option value="7">7일</option>
+                            <option value="30" selected>30일</option>
+                            <option value="90">90일</option>
+                        </select>
+                    </div>
+                    <canvas id="sales-chart" height="120"></canvas>
+                </div>
+                <div class="bg-white rounded-xl shadow p-5">
+                    <h2 class="text-lg font-semibold mb-4">빠른 작업</h2>
+                    <div class="grid gap-2">
+                        <a href="#" class="px-4 py-3 bg-plant-green text-white rounded-lg text-center">상품 추가</a>
+                        <a href="#" class="px-4 py-3 bg-gray-100 text-gray-800 rounded-lg text-center">재고 관리</a>
+                        <a href="#" class="px-4 py-3 bg-gray-100 text-gray-800 rounded-lg text-center">주문 보기</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow p-5 mt-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold">내 상품</h2>
+                    <input id="owner-products-search" type="text" placeholder="상품 검색" class="px-3 py-2 border rounded w-64">
+                </div>
+                <div id="owner-products-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-900 text-white py-12 mt-8">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center space-x-3 mb-6">
+                <i class="fas fa-seedling text-2xl text-plant-green"></i>
+                <span class="text-xl font-bold">Thai Exotic Plants</span>
+            </div>
+            <p class="text-gray-400">&copy; 2024 Thai Exotic Plants. 모든 권리 보유.</p>
+        </div>
+    </footer>
+</body>
+</html>
+

@@ -8,10 +8,14 @@
     };
 
     document.addEventListener('DOMContentLoaded', () => {
-        const grid = document.getElementById('shops-grid');
-        if (!grid) return;
-        loadShops();
-        bindControls();
+        if (window.__SHOP_DETAIL__) {
+            initShopDetail();
+        } else {
+            const grid = document.getElementById('shops-grid');
+            if (!grid) return;
+            loadShops();
+            bindControls();
+        }
     });
 
     async function loadShops(){
@@ -102,6 +106,141 @@
                 </div>
             </a>
         `;
+    }
+
+    // Detail page logic
+    async function initShopDetail(){
+        const params = new URLSearchParams(location.search);
+        const shopId = params.get('id');
+        if (!shopId){
+            renderShopNotFound();
+            return;
+        }
+        let shop;
+        try {
+            const res = await fetch(`tables/shops?id=${encodeURIComponent(shopId)}`);
+            const json = await res.json();
+            shop = Array.isArray(json.data) ? json.data[0] : (json.data || null);
+        } catch(e){
+            console.warn('Shop detail fallback:', e);
+        }
+        if (!shop){
+            shop = sampleShops().find(s=>s.id===shopId) || sampleShops()[0];
+        }
+        renderShopHeader(shop);
+        const products = await loadShopProducts(shop.id);
+        renderShopProducts(products);
+        bindShopProductsControls(products);
+    }
+
+    function renderShopNotFound(){
+        const hero = document.getElementById('shop-hero');
+        if (!hero) return;
+        hero.innerHTML = `
+            <div class="p-10 text-center">
+                <i class="fas fa-store-slash text-5xl text-gray-300 mb-4"></i>
+                <p class="text-gray-600">샵을 찾을 수 없습니다.</p>
+            </div>
+        `;
+    }
+
+    function renderShopHeader(shop){
+        const heroImg = document.getElementById('shop-hero-image');
+        const nameEl = document.getElementById('shop-name');
+        const descEl = document.getElementById('shop-desc');
+        const ownerEl = document.getElementById('shop-owner');
+        const contactEl = document.getElementById('shop-contact');
+        const addrEl = document.getElementById('shop-address');
+        const statusEl = document.getElementById('shop-status');
+        if (heroImg){
+            const img = shop.image_url || 'https://images.unsplash.com/photo-1586015555751-63b6062a39fd?w=1200';
+            heroImg.style.backgroundImage = `url('${img}')`;
+            heroImg.style.backgroundSize = 'cover';
+            heroImg.style.backgroundPosition = 'center';
+        }
+        if (nameEl) nameEl.textContent = shop.name || 'Shop';
+        if (descEl) descEl.textContent = shop.description || '';
+        if (ownerEl) ownerEl.textContent = shop.owner_name || shop.owner_id || '-';
+        if (contactEl) contactEl.textContent = shop.contact || '-';
+        if (addrEl) addrEl.textContent = shop.address || '-';
+        if (statusEl){
+            statusEl.innerHTML = shop.is_active
+                ? '<span class="px-3 py-1 rounded bg-green-100 text-green-700 text-sm">활성</span>'
+                : '<span class="px-3 py-1 rounded bg-gray-200 text-gray-700 text-sm">비활성</span>';
+        }
+    }
+
+    async function loadShopProducts(shopId){
+        try {
+            const res = await fetch(`tables/products?shop_id=${encodeURIComponent(shopId)}&limit=200`);
+            const json = await res.json();
+            return Array.isArray(json.data) ? json.data : [];
+        } catch (e){
+            console.warn('Load shop products fallback:', e);
+            return sampleProducts(shopId);
+        }
+    }
+
+    function renderShopProducts(list){
+        const grid = document.getElementById('shop-products-grid');
+        if (!grid) return;
+        if (!list || list.length === 0){
+            grid.innerHTML = `
+                <div class="col-span-full text-center py-12">
+                    <i class="fas fa-box-open text-6xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500 text-lg">등록된 상품이 없습니다.</p>
+                </div>
+            `;
+            return;
+        }
+        grid.innerHTML = list.map(p=>`
+            <div class="product-card bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="h-40 bg-gray-100">
+                    ${p.images && p.images[0] ? `<img src="${p.images[0]}" alt="${escapeHtml(p.name)}" class="w-full h-full object-cover">` : ''}
+                </div>
+                <div class="p-4">
+                    <h3 class="font-semibold text-lg mb-1 text-gray-800 line-clamp-1">${escapeHtml(p.name)}</h3>
+                    <p class="text-sm text-gray-500 mb-2 line-clamp-2">${escapeHtml(p.description||'')}</p>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="font-semibold text-plant-green">${(p.price||0).toLocaleString()} ฿</span>
+                            <span class="block text-xs text-gray-500">$${p.price_usd||0}</span>
+                        </div>
+                        <span class="text-xs text-gray-500">재고 ${p.stock_quantity||0}</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function bindShopProductsControls(all){
+        const search = document.getElementById('shop-products-search');
+        const sort = document.getElementById('shop-products-sort');
+        let working = all.slice();
+        const rerender = ()=>{
+            renderShopProducts(working);
+        };
+        const apply = ()=>{
+            const q = (search?.value||'').trim().toLowerCase();
+            const sortVal = sort?.value || 'created_at-desc';
+            working = all.filter(p=>{
+                if (!q) return true;
+                return (p.name||'').toLowerCase().includes(q) || (p.korean_name||'').toLowerCase().includes(q);
+            });
+            if (sortVal === 'price-asc') working.sort((a,b)=>(a.price||0)-(b.price||0));
+            else if (sortVal === 'price-desc') working.sort((a,b)=>(b.price||0)-(a.price||0));
+            else working.sort((a,b)=> ((b.created_at||'') > (a.created_at||'')) ? 1 : -1);
+            rerender();
+        };
+        if (search){ let t; search.addEventListener('input', ()=>{ clearTimeout(t); t=setTimeout(apply, 200); }); }
+        if (sort){ sort.addEventListener('change', apply); }
+    }
+
+    function sampleProducts(shopId){
+        return [
+            { id:'p1', shop_id: shopId, name:'Monstera Thai Constellation', price:15000, price_usd:450, images:['https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400'], description:'희귀 몬스테라', stock_quantity:5 },
+            { id:'p2', shop_id: shopId, name:'Aglaonema Red Valentine', price:2800, price_usd:85, images:['https://images.unsplash.com/photo-1440589473619-3cde28941638?w=400'], description:'관엽식물', stock_quantity:12 }
+        ];
     }
 
     function escapeHtml(str){
