@@ -261,4 +261,3 @@ document.addEventListener('DOMContentLoaded', () => {
     window.languageManager = new LanguageManager();
 });
 
-export { translations, LanguageManager };

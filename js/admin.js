@@ -16,6 +16,7 @@ class AdminDashboard {
         this.setupEventListeners();
         await this.loadInitialData();
         this.renderDashboard();
+        // Facebook connection check is handled by global function
     }
 
     setupEventListeners() {
@@ -251,6 +252,13 @@ class AdminDashboard {
     async loadCategories() {
         try {
             const response = await fetch('tables/categories?limit=100');
+            
+            // Check if response is HTML (404 page) instead of JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('API endpoint not available, using fallback data');
+            }
+            
             if (response.ok) {
                 const result = await response.json();
                 this.categories = result.data || [];
@@ -281,6 +289,8 @@ class AdminDashboard {
     saveCategoriesToStorage() {
         try {
             localStorage.setItem('thaiPlantsCategories', JSON.stringify(this.categories));
+            // Also save to server
+            this.syncDataToServer('categories', this.categories);
         } catch (error) {
             console.error('Error saving categories to storage:', error);
         }
@@ -330,6 +340,13 @@ class AdminDashboard {
     async loadOrders() {
         try {
             const response = await fetch('tables/orders?limit=1000');
+            
+            // Check if response is HTML (404 page) instead of JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('API endpoint not available, using fallback data');
+            }
+            
             if (response.ok) {
                 const result = await response.json();
                 this.orders = result.data || [];
@@ -418,6 +435,13 @@ class AdminDashboard {
     async loadSocialPosts() {
         try {
             const response = await fetch('tables/social_posts?limit=100');
+            
+            // Check if response is HTML (404 page) instead of JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('API endpoint not available, using fallback data');
+            }
+            
             if (response.ok) {
                 const result = await response.json();
                 this.socialPosts = result.data || [];
@@ -448,6 +472,8 @@ class AdminDashboard {
     saveSocialPostsToStorage() {
         try {
             localStorage.setItem('thaiPlantsSocialPosts', JSON.stringify(this.socialPosts));
+            // Also save to server
+            this.syncDataToServer('socialPosts', this.socialPosts);
         } catch (error) {
             console.error('Error saving social posts to storage:', error);
         }
@@ -850,6 +876,13 @@ class AdminDashboard {
     async loadShops() {
         try {
             const response = await fetch('tables/shops?limit=100');
+            
+            // Check if response is HTML (404 page) instead of JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('API endpoint not available, using fallback data');
+            }
+            
             if (response.ok) {
                 const result = await response.json();
                 this.shops = result.data || [];
@@ -2773,10 +2806,547 @@ function deleteShop(shopId) {
     }
 }
 
+// Facebook connection functions
+async function connectToFacebook() {
+    try {
+        // Set a demo user ID for testing
+        localStorage.setItem('currentUserId', 'demo_user_123');
+        
+        // Redirect to Facebook OAuth
+        window.location.href = '/auth/facebook';
+    } catch (error) {
+        console.error('Error connecting to Facebook:', error);
+        showNotification('Facebook 연결 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+async function checkFacebookConnection() {
+    try {
+        const userId = localStorage.getItem('currentUserId') || 'demo_user_123';
+        
+        // Check localStorage first for cached connection status
+        const storedConnection = localStorage.getItem('facebookConnection');
+        if (storedConnection) {
+            const connectionData = JSON.parse(storedConnection);
+            if (connectionData.connected && connectionData.userId === userId) {
+                updateFacebookUI(true);
+                return;
+            }
+        }
+        
+        // If not in localStorage, check server
+        const response = await fetch(`/api/facebook/status/${userId}`);
+        const status = await response.json();
+        
+        // Update UI
+        updateFacebookUI(status.connected);
+        
+        // Save connection status to localStorage
+        localStorage.setItem('facebookConnection', JSON.stringify({
+            connected: status.connected,
+            userId: userId,
+            timestamp: Date.now()
+        }));
+        
+    } catch (error) {
+        console.error('Error checking Facebook connection:', error);
+        updateFacebookUI(false);
+    }
+}
+
+function updateFacebookUI(connected) {
+    const statusElement = document.getElementById('facebook-status');
+    const connectBtn = document.getElementById('facebook-connect-btn');
+    
+    if (connected) {
+        statusElement.textContent = '연결됨';
+        statusElement.className = 'text-2xl font-bold text-green-300';
+        connectBtn.textContent = '연결됨';
+        connectBtn.disabled = true;
+        connectBtn.className = 'mt-2 px-4 py-2 bg-green-300 text-white rounded cursor-not-allowed';
+    } else {
+        statusElement.textContent = '연결 안됨';
+        statusElement.className = 'text-2xl font-bold text-red-300';
+        connectBtn.textContent = '연결하기';
+        connectBtn.disabled = false;
+        connectBtn.className = 'mt-2 px-4 py-2 bg-white text-blue-600 rounded hover:bg-gray-100 transition duration-200';
+    }
+}
+
+// Check for Facebook connection success/error in URL parameters
+function checkFacebookAuthResult() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if (urlParams.get('facebook_connected') === 'true') {
+        showNotification('Facebook이 성공적으로 연결되었습니다!', 'success');
+        checkFacebookConnection();
+        // Remove the parameter from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get('facebook_error') === 'true') {
+        showNotification('Facebook 연결에 실패했습니다. 다시 시도해주세요.', 'error');
+        // Remove the parameter from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+}
+
+// Add server sync function to AdminDashboard class
+AdminDashboard.prototype.syncDataToServer = async function(type, data) {
+    try {
+        const response = await fetch('/api/save-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: type,
+                data: data
+            })
+        });
+        
+        if (response.ok) {
+            console.log(`${type} data synced to server successfully`);
+        } else {
+            console.warn(`Failed to sync ${type} data to server`);
+        }
+    } catch (error) {
+        console.error(`Error syncing ${type} data to server:`, error);
+    }
+};
+
+// Add renderGeneratedPosts function to AdminDashboard class
+AdminDashboard.prototype.renderGeneratedPosts = function() {
+    const container = document.getElementById('generated-posts-list');
+    if (!container) return;
+
+    if (generatedPosts.length === 0) {
+        container.innerHTML = `
+            <div class="p-6 text-center text-gray-500">
+                <i class="fas fa-magic text-4xl mb-4"></i>
+                <p>생성된 포스트가 없습니다</p>
+                <p class="text-sm mt-2">상품 포스팅이나 관리팁을 생성해보세요!</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = generatedPosts.map(post => `
+        <div class="p-6">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center mb-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPostTypeBadgeClass(post.type)}">
+                            ${getPostTypeIcon(post.type)} ${getPostTypeName(post.type)}
+                        </span>
+                        <span class="ml-2 text-sm text-gray-500">${formatDate(post.createdAt)}</span>
+                    </div>
+                    <h4 class="font-semibold text-gray-900 mb-2">${post.title}</h4>
+                    <p class="text-gray-700 mb-3 whitespace-pre-line">${post.content}</p>
+                    ${post.hashtags && post.hashtags.length > 0 ? `
+                        <div class="flex flex-wrap gap-1 mb-3">
+                            ${post.hashtags.map(tag => `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">#${tag}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                    <div class="flex items-center text-sm text-gray-500">
+                        <span class="mr-4">상태: ${getStatusBadge(post.status)}</span>
+                        <span>플랫폼: ${post.platforms ? post.platforms.join(', ') : '미설정'}</span>
+                    </div>
+                </div>
+                <div class="flex space-x-2 ml-4">
+                    <button onclick="editGeneratedPost('${post.id}')" 
+                            class="text-blue-600 hover:text-blue-800 text-sm">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="publishGeneratedPost('${post.id}')" 
+                            class="text-green-600 hover:text-green-800 text-sm">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                    <button onclick="deleteGeneratedPost('${post.id}')" 
+                            class="text-red-600 hover:text-red-800 text-sm">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+};
+
+// Generated posts management
+let generatedPosts = [];
+
+// Load generated posts from storage
+function loadGeneratedPosts() {
+    try {
+        const stored = localStorage.getItem('thaiPlantsGeneratedPosts');
+        if (stored) {
+            generatedPosts = JSON.parse(stored);
+        }
+    } catch (error) {
+        console.error('Error loading generated posts:', error);
+        generatedPosts = [];
+    }
+}
+
+// Save generated posts to storage
+function saveGeneratedPosts() {
+    try {
+        localStorage.setItem('thaiPlantsGeneratedPosts', JSON.stringify(generatedPosts));
+    } catch (error) {
+        console.error('Error saving generated posts:', error);
+    }
+}
+
+// Generate product post
+async function generateProductPost() {
+    const productSelect = document.getElementById('product-select');
+    const postStyle = document.getElementById('post-style');
+    
+    if (!productSelect.value) {
+        showNotification('상품을 선택해주세요.', 'error');
+        return;
+    }
+    
+    const product = adminDashboard.products.find(p => p.id === productSelect.value);
+    if (!product) {
+        showNotification('선택한 상품을 찾을 수 없습니다.', 'error');
+        return;
+    }
+    
+    try {
+        const post = await createProductPost(product, postStyle.value);
+        generatedPosts.unshift(post);
+        saveGeneratedPosts();
+        if (adminDashboard) {
+            adminDashboard.renderGeneratedPosts();
+        }
+        showNotification('상품 포스트가 생성되었습니다!', 'success');
+    } catch (error) {
+        console.error('Error generating product post:', error);
+        showNotification('포스트 생성 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+// Generate care tip
+async function generateCareTip() {
+    const plantCategory = document.getElementById('plant-category');
+    const tipType = document.getElementById('tip-type');
+    
+    if (!plantCategory.value) {
+        showNotification('식물 카테고리를 선택해주세요.', 'error');
+        return;
+    }
+    
+    try {
+        const post = await createCareTipPost(plantCategory.value, tipType.value);
+        generatedPosts.unshift(post);
+        saveGeneratedPosts();
+        if (adminDashboard) {
+            adminDashboard.renderGeneratedPosts();
+        }
+        showNotification('관리팁이 생성되었습니다!', 'success');
+    } catch (error) {
+        console.error('Error generating care tip:', error);
+        showNotification('팁 생성 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+// Create product post
+async function createProductPost(product, style) {
+    const postTemplates = {
+        promotional: {
+            title: `🌿 ${product.name} 특가 판매!`,
+            content: `✨ ${product.name}을 만나보세요!\n\n${product.description}\n\n💰 특가: ${product.price.toLocaleString()}원\n📦 재고: ${product.stock}개\n\n지금 주문하시면 특별 혜택을 드려요!`,
+            hashtags: ['식물', '특가', '온라인쇼핑', product.category, '반려식물']
+        },
+        educational: {
+            title: `🌱 ${product.name} 키우기 가이드`,
+            content: `안녕하세요! 오늘은 ${product.name} 키우는 방법을 알려드릴게요.\n\n${product.description}\n\n💡 관리 팁:\n• 충분한 햇빛을 받도록 해주세요\n• 적절한 물주기로 건강하게 키워보세요\n• 정기적인 영양 공급이 필요해요\n\n이런 식물을 찾고 계셨다면 지금 만나보세요!`,
+            hashtags: ['식물키우기', '가드닝', '반려식물', product.category, '식물관리']
+        },
+        lifestyle: {
+            title: `🏠 ${product.name}로 인테리어 완성하기`,
+            content: `집안이 더욱 아름다워지는 ${product.name}!\n\n${product.description}\n\n이 식물은 어떤 공간에 두어도 완벽한 포인트가 되어줄 거예요. 자연스러운 녹색이 주는 편안함을 느껴보세요.\n\n지금 바로 만나보세요!`,
+            hashtags: ['인테리어', '홈데코', '식물', '라이프스타일', product.category]
+        }
+    };
+    
+    const template = postTemplates[style] || postTemplates.promotional;
+    
+    return {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        type: 'product',
+        title: template.title,
+        content: template.content,
+        hashtags: template.hashtags,
+        productId: product.id,
+        productName: product.name,
+        style: style,
+        status: 'draft',
+        platforms: [],
+        createdAt: Date.now(),
+        images: product.images || []
+    };
+}
+
+// Create care tip post
+async function createCareTipPost(category, tipType) {
+    const tipTemplates = {
+        watering: {
+            title: `💧 ${category} 물주기 완벽 가이드`,
+            content: `${category} 물주기는 정말 중요해요!\n\n🌱 물주기 시기:\n• 흙이 마르면 충분히 물을 주세요\n• 겉흙이 2-3cm 마를 때가 적당해요\n• 과습보다는 건조가 낫습니다\n\n💡 팁: 손가락으로 흙을 확인해보세요!\n\n건강한 식물을 위한 첫 걸음, 물주기부터 시작해보세요!`,
+            hashtags: ['물주기', '식물관리', category, '가드닝', '식물키우기']
+        },
+        lighting: {
+            title: `☀️ ${category} 빛 관리의 모든 것`,
+            content: `식물에게 빛은 생명과 같아요!\n\n🌞 빛 관리법:\n• 밝은 간접광이 가장 좋아요\n• 직사광선은 피해주세요\n• 하루 6-8시간 정도 충분한 빛을 주세요\n\n💡 팁: 창가에서 1-2m 떨어진 곳이 적당해요!\n\n올바른 빛 관리로 더욱 건강한 식물을 키워보세요!`,
+            hashtags: ['조명', '식물관리', category, '빛관리', '식물키우기']
+        },
+        fertilizing: {
+            title: `🌿 ${category} 비료 주기 완벽 가이드`,
+            content: `식물도 영양이 필요해요!\n\n🌱 비료 주기:\n• 성장기(봄-여름)에 주 1회\n• 휴면기(가을-겨울)에는 월 1회\n• 희석해서 주는 것이 좋아요\n\n💡 팁: 과다 시비는 오히려 해로울 수 있어요!\n\n적절한 영양 공급으로 튼튼한 식물을 키워보세요!`,
+            hashtags: ['비료', '식물관리', category, '영양', '식물키우기']
+        },
+        repotting: {
+            title: `🪴 ${category} 분갈이 시기와 방법`,
+            content: `식물이 자라면 새로운 집이 필요해요!\n\n🪴 분갈이 시기:\n• 뿌리가 화분 밖으로 나올 때\n• 1-2년에 한 번 정도\n• 봄철이 가장 좋아요\n\n💡 팁: 한 번에 한 사이즈만 큰 화분으로 옮기세요!\n\n새로운 화분에서 더욱 잘 자라는 식물을 만나보세요!`,
+            hashtags: ['분갈이', '식물관리', category, '화분', '식물키우기']
+        },
+        pests: {
+            title: `🐛 ${category} 해충 예방과 관리법`,
+            content: `건강한 식물을 위한 해충 관리!\n\n🛡️ 예방법:\n• 통풍이 잘 되도록 해주세요\n• 과습을 피해주세요\n• 정기적으로 잎을 확인하세요\n\n💡 팁: 초기 발견이 중요해요!\n\n깨끗하고 건강한 식물을 위해 꾸준히 관리해보세요!`,
+            hashtags: ['해충관리', '식물관리', category, '예방', '식물키우기']
+        }
+    };
+    
+    const template = tipTemplates[tipType] || tipTemplates.watering;
+    
+    return {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        type: 'care_tip',
+        title: template.title,
+        content: template.content,
+        hashtags: template.hashtags,
+        category: category,
+        tipType: tipType,
+        status: 'draft',
+        platforms: [],
+        createdAt: Date.now(),
+        images: []
+    };
+}
+
+// Render generated posts (wrapper function)
+function renderGeneratedPosts() {
+    if (adminDashboard) {
+        adminDashboard.renderGeneratedPosts();
+    }
+}
+
+// Helper functions for generated posts
+function getPostTypeBadgeClass(type) {
+    const classes = {
+        'product': 'bg-green-100 text-green-800',
+        'care_tip': 'bg-blue-100 text-blue-800'
+    };
+    return classes[type] || 'bg-gray-100 text-gray-800';
+}
+
+function getPostTypeIcon(type) {
+    const icons = {
+        'product': '🛍️',
+        'care_tip': '🌱'
+    };
+    return icons[type] || '📝';
+}
+
+function getPostTypeName(type) {
+    const names = {
+        'product': '상품 포스트',
+        'care_tip': '관리팁'
+    };
+    return names[type] || '포스트';
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'draft': '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">초안</span>',
+        'scheduled': '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">예약됨</span>',
+        'published': '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">게시됨</span>'
+    };
+    return badges[status] || '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">알 수 없음</span>';
+}
+
+function formatDate(timestamp) {
+    return new Date(timestamp).toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// Edit generated post
+function editGeneratedPost(postId) {
+    const post = generatedPosts.find(p => p.id === postId);
+    if (!post) return;
+    
+    // Create edit modal
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-semibold mb-4">포스트 수정</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">제목</label>
+                    <input type="text" id="edit-post-title" value="${post.title}" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">내용</label>
+                    <textarea id="edit-post-content" rows="8" 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">${post.content}</textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">해시태그 (쉼표로 구분)</label>
+                    <input type="text" id="edit-post-hashtags" value="${post.hashtags.join(', ')}" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-plant-green">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button onclick="closeEditModal()" 
+                        class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                    취소
+                </button>
+                <button onclick="saveEditedPost('${postId}')" 
+                        class="px-4 py-2 bg-plant-green text-white rounded-md hover:bg-green-600">
+                    저장
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+// Close edit modal
+function closeEditModal() {
+    const modal = document.querySelector('.fixed.inset-0');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Save edited post
+function saveEditedPost(postId) {
+    const post = generatedPosts.find(p => p.id === postId);
+    if (!post) return;
+    
+    const title = document.getElementById('edit-post-title').value;
+    const content = document.getElementById('edit-post-content').value;
+    const hashtags = document.getElementById('edit-post-hashtags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
+    
+    post.title = title;
+    post.content = content;
+    post.hashtags = hashtags;
+    
+    saveGeneratedPosts();
+    if (adminDashboard) {
+        adminDashboard.renderGeneratedPosts();
+    }
+    closeEditModal();
+    showNotification('포스트가 수정되었습니다.', 'success');
+}
+
+// Publish generated post
+function publishGeneratedPost(postId) {
+    const post = generatedPosts.find(p => p.id === postId);
+    if (!post) return;
+    
+    // Add to social posts
+    const socialPost = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        content: `${post.title}\n\n${post.content}\n\n${post.hashtags.map(tag => `#${tag}`).join(' ')}`,
+        platform: 'facebook',
+        scheduledDate: Date.now(),
+        status: 'published',
+        views: 0,
+        likes: 0,
+        shares: 0,
+        images: post.images || []
+    };
+    
+    adminDashboard.socialPosts.unshift(socialPost);
+    adminDashboard.saveSocialPostsToStorage();
+    adminDashboard.renderSocialPosts();
+    
+    post.status = 'published';
+    post.platforms = ['facebook'];
+    saveGeneratedPosts();
+    if (adminDashboard) {
+        adminDashboard.renderGeneratedPosts();
+    }
+    
+    showNotification('포스트가 Facebook에 게시되었습니다!', 'success');
+}
+
+// Delete generated post
+function deleteGeneratedPost(postId) {
+    if (confirm('이 포스트를 삭제하시겠습니까?')) {
+        generatedPosts = generatedPosts.filter(p => p.id !== postId);
+        saveGeneratedPosts();
+        if (adminDashboard) {
+            adminDashboard.renderGeneratedPosts();
+        }
+        showNotification('포스트가 삭제되었습니다.', 'success');
+    }
+}
+
 // Initialize admin dashboard
 let adminDashboard;
 
 document.addEventListener('DOMContentLoaded', function() {
     adminDashboard = new AdminDashboard();
     adminDashboard.initialize();
+    checkFacebookAuthResult();
+    loadGeneratedPosts();
+    
+    // Load products and categories for dropdowns
+    loadProductsForDropdown();
+    loadCategoriesForDropdown();
+    
+    // Render generated posts after everything is loaded
+    setTimeout(() => {
+        if (adminDashboard) {
+            adminDashboard.renderGeneratedPosts();
+        }
+    }, 100);
 });
+
+// Load products for dropdown
+function loadProductsForDropdown() {
+    const productSelect = document.getElementById('product-select');
+    if (!productSelect) return;
+    
+    productSelect.innerHTML = '<option value="">상품을 선택하세요</option>';
+    adminDashboard.products.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.id;
+        option.textContent = product.name;
+        productSelect.appendChild(option);
+    });
+}
+
+// Load categories for dropdown
+function loadCategoriesForDropdown() {
+    const plantCategory = document.getElementById('plant-category');
+    if (!plantCategory) return;
+    
+    plantCategory.innerHTML = '<option value="">카테고리를 선택하세요</option>';
+    adminDashboard.categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.name;
+        option.textContent = category.name;
+        plantCategory.appendChild(option);
+    });
+}

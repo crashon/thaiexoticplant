@@ -1,5 +1,4 @@
 // Main JavaScript for Thai Exotic Plants
-import { LanguageManager } from './languages.js';
 
 // Global variables
 let currentPage = 1;
@@ -23,7 +22,10 @@ async function initializeApp() {
         showLoading();
         await loadCategories();
         await loadProducts();
-        updateCartUI();
+        // Ensure cart UI updater exists (admin.html may not include cart UI)
+        if (typeof updateCartUI === 'function') {
+            updateCartUI();
+        }
         hideLoading();
     } catch (error) {
         console.error('Error initializing app:', error);
@@ -57,6 +59,13 @@ function hideLoading() {
 async function loadCategories() {
     try {
         const response = await fetch('tables/categories?limit=100');
+        
+        // Check if response is HTML (404 page) instead of JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('API endpoint not available, using fallback data');
+        }
+        
         const result = await response.json();
         categories = result.data;
         // Save to localStorage for persistence
@@ -137,6 +146,13 @@ function renderCategories() {
 async function loadProducts(page = 1, filter = 'all') {
     try {
         const response = await fetch(`tables/products?page=${page}&limit=20`);
+        
+        // Check if response is HTML (404 page) instead of JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('API endpoint not available, using fallback data');
+        }
+        
         const result = await response.json();
         
         if (page === 1) {

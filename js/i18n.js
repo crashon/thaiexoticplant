@@ -211,7 +211,8 @@ class I18nManager {
                 orders: '주문 관리',
                 social: '소셜미디어',
                 media: '미디어 관리',
-                analytics: '소셜미디어 분석'
+                analytics: '소셜미디어 분석',
+                shops: '샵 관리'
             },
             dashboard: {
                 title: '관리자 대시보드',
@@ -330,6 +331,24 @@ class I18nManager {
                 bestPosts: '최고 성과 포스트',
                 engagement: '참여도'
             },
+            shops: {
+                title: '샵 관리',
+                subtitle: '샵을 추가, 편집, 삭제하세요',
+                addShop: '샵 추가',
+                editShop: '샵 편집',
+                deleteShop: '샵 삭제',
+                shopName: '샵명',
+                shopDescription: '샵 설명',
+                ownerName: '소유자명',
+                contactEmail: '연락처 이메일',
+                address: '주소',
+                status: '상태',
+                active: '활성',
+                inactive: '비활성',
+                productCount: '상품 수',
+                searchPlaceholder: '샵명으로 검색...',
+                statusFilter: '전체 상태'
+            },
             language: {
                 changed: '언어가 {{language}}로 변경되었습니다.'
             },
@@ -344,6 +363,8 @@ class I18nManager {
                 home: '홈',
                 products: '상품보기',
                 categories: '카테고리',
+                shops: '샵',
+                shopOwner: '샵 오너',
                 about: '소개',
                 admin: '관리자'
             },
@@ -405,7 +426,8 @@ class I18nManager {
                 orders: 'Orders',
                 social: 'Social Media',
                 media: 'Media',
-                analytics: 'Analytics'
+                analytics: 'Analytics',
+                shops: 'Shops'
             },
             dashboard: {
                 title: 'Admin Dashboard',
@@ -524,6 +546,24 @@ class I18nManager {
                 bestPosts: 'Best Performing Posts',
                 engagement: 'Engagement'
             },
+            shops: {
+                title: 'Shop Management',
+                subtitle: 'Add, edit, and delete shops',
+                addShop: 'Add Shop',
+                editShop: 'Edit Shop',
+                deleteShop: 'Delete Shop',
+                shopName: 'Shop Name',
+                shopDescription: 'Shop Description',
+                ownerName: 'Owner Name',
+                contactEmail: 'Contact Email',
+                address: 'Address',
+                status: 'Status',
+                active: 'Active',
+                inactive: 'Inactive',
+                productCount: 'Product Count',
+                searchPlaceholder: 'Search by shop name...',
+                statusFilter: 'All Status'
+            },
             language: {
                 changed: 'Language changed to {{language}}.'
             },
@@ -538,6 +578,8 @@ class I18nManager {
                 home: 'Home',
                 products: 'Products',
                 categories: 'Categories',
+                shops: 'Shops',
+                shopOwner: 'Shop Owner',
                 about: 'About',
                 admin: 'Admin'
             },
@@ -599,7 +641,8 @@ class I18nManager {
                 orders: 'จัดการคำสั่งซื้อ',
                 social: 'โซเชียลมีเดีย',
                 media: 'จัดการสื่อ',
-                analytics: 'วิเคราะห์โซเชียลมีเดีย'
+                analytics: 'วิเคราะห์โซเชียลมีเดีย',
+                shops: 'จัดการร้านค้า'
             },
             dashboard: {
                 title: 'แดชบอร์ดผู้ดูแล',
@@ -718,6 +761,24 @@ class I18nManager {
                 bestPosts: 'โพสต์ที่ทำผลงานดีที่สุด',
                 engagement: 'การมีส่วนร่วม'
             },
+            shops: {
+                title: 'จัดการร้านค้า',
+                subtitle: 'เพิ่ม แก้ไข และลบร้านค้า',
+                addShop: 'เพิ่มร้านค้า',
+                editShop: 'แก้ไขร้านค้า',
+                deleteShop: 'ลบร้านค้า',
+                shopName: 'ชื่อร้านค้า',
+                shopDescription: 'คำอธิบายร้านค้า',
+                ownerName: 'ชื่อเจ้าของ',
+                contactEmail: 'อีเมลติดต่อ',
+                address: 'ที่อยู่',
+                status: 'สถานะ',
+                active: 'ใช้งาน',
+                inactive: 'ไม่ใช้งาน',
+                productCount: 'จำนวนสินค้า',
+                searchPlaceholder: 'ค้นหาตามชื่อร้านค้า...',
+                statusFilter: 'สถานะทั้งหมด'
+            },
             language: {
                 changed: 'เปลี่ยนภาษาเป็น {{language}} แล้ว'
             },
@@ -732,6 +793,8 @@ class I18nManager {
                 home: 'หน้าแรก',
                 products: 'สินค้า',
                 categories: 'หมวดหมู่',
+                shops: 'ร้านค้า',
+                shopOwner: 'เจ้าของร้าน',
                 about: 'เกี่ยวกับเรา',
                 admin: 'ผู้ดูแล'
             },

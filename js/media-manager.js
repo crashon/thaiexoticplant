@@ -92,7 +92,17 @@ class MediaManager {
             // Try to load from localStorage first
             const stored = localStorage.getItem('thaiPlantsMediaItems');
             if (stored) {
-                this.mediaItems = JSON.parse(stored);
+                // Migrate any legacy blob: URLs to null so they don't break on reload
+                const parsed = JSON.parse(stored);
+                this.mediaItems = Array.isArray(parsed) ? parsed.map(item => {
+                    if (item && typeof item.url === 'string' && item.url.startsWith('blob:')) {
+                        // Drop invalid blob URLs from previous sessions
+                        return { ...item, url: null };
+                    }
+                    return item;
+                }) : [];
+                // Save back if we modified anything
+                this.saveMediaItems();
                 this.renderMediaGallery();
                 return;
             }
@@ -112,8 +122,34 @@ class MediaManager {
     saveMediaItems() {
         try {
             localStorage.setItem('thaiPlantsMediaItems', JSON.stringify(this.mediaItems));
+            // Also save to server
+            this.syncDataToServer('mediaItems', this.mediaItems);
         } catch (error) {
             console.error('Error saving media items:', error);
+        }
+    }
+
+    // Sync data to server
+    async syncDataToServer(type, data) {
+        try {
+            const response = await fetch('/api/save-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    type: type,
+                    data: data
+                })
+            });
+            
+            if (response.ok) {
+                console.log(`${type} data synced to server successfully`);
+            } else {
+                console.warn(`Failed to sync ${type} data to server`);
+            }
+        } catch (error) {
+            console.error(`Error syncing ${type} data to server:`, error);
         }
     }
 
@@ -257,24 +293,26 @@ class MediaManager {
         // Simulate upload process
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // In a real implementation, this would upload to a server or cloud storage
-        const mediaItem = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-            name: file.name,
-            url: URL.createObjectURL(file), // Temporary URL for demo
-            type: file.type.startsWith('image/') ? 'image' : 'video',
-            size: file.size,
-            uploadDate: Date.now(),
-            alt: file.name.split('.')[0],
-            tags: []
+        // Convert file to base64 for persistent storage
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const mediaItem = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                name: file.name,
+                url: e.target.result, // Base64 data URL
+                type: file.type.startsWith('image/') ? 'image' : 'video',
+                size: file.size,
+                uploadDate: Date.now(),
+                alt: file.name.split('.')[0],
+                tags: []
+            };
+            
+            this.mediaItems.unshift(mediaItem);
+            this.saveMediaItems();
         };
-
-        this.mediaItems.unshift(mediaItem);
+        reader.readAsDataURL(file);
         
-        // Save changes to localStorage
-        this.saveMediaItems();
-        
-        return mediaItem;
+        return null; // Will be handled by the reader.onload callback
     }
 
     // Set filter

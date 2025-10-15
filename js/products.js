@@ -24,10 +24,24 @@ class ProductManager {
     async loadCategories() {
         try {
             const response = await fetch('tables/categories?limit=100');
+            
+            // Check if response is HTML (404 page) instead of JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('API endpoint not available, using fallback data');
+            }
+            
             const result = await response.json();
             this.categories = result.data;
         } catch (error) {
             console.error('Error loading categories:', error);
+            // Use default categories if API fails
+            this.categories = [
+                { id: '1', name: '희귀 아로이드', description: '몬스테라, 필로덴드론 등 희귀한 아로이드 계열' },
+                { id: '2', name: '다육식물', description: '태국 자생 다육식물과 선인장류' },
+                { id: '3', name: '관엽식물', description: '실내에서 기르기 좋은 열대 관엽식물' },
+                { id: '4', name: '꽃식물', description: '아름다운 꽃을 피우는 열대 식물' }
+            ];
         }
     }
 
@@ -45,6 +59,13 @@ class ProductManager {
             }
 
             const response = await fetch(url);
+            
+            // Check if response is HTML (404 page) instead of JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('API endpoint not available, using fallback data');
+            }
+            
             const result = await response.json();
             
             if (append) {
@@ -56,7 +77,42 @@ class ProductManager {
             return result;
         } catch (error) {
             console.error('Error loading products:', error);
-            return { data: [], total: 0 };
+            // Use default products if API fails
+            this.products = [
+                {
+                    id: '1',
+                    name: 'Monstera Thai Constellation',
+                    korean_name: '몬스테라 타이 컨스텔레이션',
+                    price: 15000,
+                    price_usd: 450,
+                    images: ['https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400'],
+                    description: '아름다운 무늬를 자랑하는 희귀 몬스테라',
+                    category_id: '1',
+                    is_rare: true,
+                    is_featured: true,
+                    is_active: true,
+                    stock_quantity: 5,
+                    difficulty_level: '중급',
+                    tags: ['몬스테라', '희귀종', '무늬']
+                },
+                {
+                    id: '2',
+                    name: 'Philodendron Pink Princess',
+                    korean_name: '필로덴드론 핑크 프린세스',
+                    price: 8500,
+                    price_usd: 250,
+                    images: ['https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400'],
+                    description: '핑크색 무늬가 매력적인 필로덴드론',
+                    category_id: '1',
+                    is_rare: true,
+                    is_featured: false,
+                    is_active: true,
+                    stock_quantity: 8,
+                    difficulty_level: '중급',
+                    tags: ['필로덴드론', '핑크', '무늬']
+                }
+            ];
+            return { data: this.products, total: this.products.length };
         }
     }
 

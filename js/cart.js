@@ -6,7 +6,10 @@ let isCartOpen = false;
 // Initialize cart from localStorage
 function initializeCart() {
     cart = JSON.parse(localStorage.getItem('thaiPlantsCart')) || [];
-    updateCartUI();
+    // Only update UI if cart elements exist on the page
+    if (cartUIAvailable()) {
+        updateCartUI();
+    }
 }
 
 // Add item to cart
@@ -97,6 +100,7 @@ function saveCartToStorage() {
 function toggleCart() {
     const cartSidebar = document.getElementById('cart-sidebar');
     const cartOverlay = document.getElementById('cart-overlay');
+    if (!cartSidebar || !cartOverlay) return; // No cart UI on this page
     
     if (isCartOpen) {
         cartSidebar.classList.add('translate-x-full');
@@ -115,21 +119,31 @@ function updateCartUI() {
     const cartCount = document.getElementById('cart-count');
     const cartTotal = document.getElementById('cart-total');
     
+    // If neither UI element exists, skip updating
+    if (!cartCount && !cartTotal) return;
+
     const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
     const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     
     // Update cart count badge
-    if (totalItems > 0) {
-        cartCount.textContent = totalItems;
-        cartCount.classList.remove('hidden');
-    } else {
-        cartCount.classList.add('hidden');
+    if (cartCount) {
+        if (totalItems > 0) {
+            cartCount.textContent = totalItems;
+            cartCount.classList.remove('hidden');
+        } else {
+            cartCount.classList.add('hidden');
+        }
     }
     
     // Update cart total
     if (cartTotal) {
         cartTotal.textContent = `${totalAmount.toLocaleString()} ฿`;
     }
+}
+
+// Helper to detect if cart UI exists on the current page
+function cartUIAvailable() {
+    return !!(document.getElementById('cart-count') || document.getElementById('cart-total'));
 }
 
 // Render cart items

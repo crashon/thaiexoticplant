@@ -74,6 +74,13 @@ class SocialMediaManager {
     async loadScheduledPosts() {
         try {
             const response = await fetch('tables/social_posts?limit=100');
+            
+            // Check if response is HTML (404 page) instead of JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('API endpoint not available, using fallback data');
+            }
+            
             const result = await response.json();
             this.scheduledPosts = result.data || [];
         } catch (error) {
@@ -356,23 +363,101 @@ class SocialMediaManager {
 
     // Publish to specific platform (simulated)
     async publishToPlatform(post, platform) {
-        // In a real implementation, this would use the actual API
-        console.log(`Publishing to ${platform}:`, {
-            title: post.title,
-            content: post.content,
-            hashtags: post.hashtags,
-            images: post.images
-        });
-
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Simulate random success/failure (90% success rate)
-        if (Math.random() < 0.9) {
-            return { success: true, postId: `${platform}_${Date.now()}` };
+        if (platform === 'facebook') {
+            return await this.publishToFacebook(post);
         } else {
-            throw new Error(`Failed to publish to ${platform}`);
+            // For other platforms, keep simulation for now
+            console.log(`Publishing to ${platform}:`, {
+                title: post.title,
+                content: post.content,
+                hashtags: post.hashtags,
+                images: post.images
+            });
+
+            // Simulate API call delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Simulate random success/failure (90% success rate)
+            if (Math.random() < 0.9) {
+                return { success: true, postId: `${platform}_${Date.now()}` };
+            } else {
+                throw new Error(`Failed to publish to ${platform}`);
+            }
         }
+    }
+
+    // Publish to Facebook using real API
+    async publishToFacebook(post) {
+        try {
+            // Get current user ID (in a real app, this would come from authentication)
+            const userId = this.getCurrentUserId();
+            
+            if (!userId) {
+                throw new Error('User not authenticated. Please connect to Facebook first.');
+            }
+
+            // Check if user is connected to Facebook
+            const statusResponse = await fetch(`/api/facebook/status/${userId}`);
+            const status = await statusResponse.json();
+            
+            if (!status.connected) {
+                throw new Error('Facebook not connected. Please connect to Facebook first.');
+            }
+
+            // Prepare the message
+            let message = post.content;
+            if (post.hashtags && post.hashtags.length > 0) {
+                message += '\n\n' + post.hashtags.map(tag => `#${tag}`).join(' ');
+            }
+
+            // Prepare the request body
+            const requestBody = {
+                userId: userId,
+                message: message
+            };
+
+            // Add image if available
+            if (post.images && post.images.length > 0) {
+                requestBody.imageUrl = post.images[0];
+            }
+
+            // Post to Facebook
+            const response = await fetch('/api/facebook/post', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                return {
+                    success: true,
+                    platform: 'facebook',
+                    postId: result.postId,
+                    message: result.message
+                };
+            } else {
+                throw new Error(result.error || 'Failed to post to Facebook');
+            }
+
+        } catch (error) {
+            console.error('Facebook posting error:', error);
+            return {
+                success: false,
+                platform: 'facebook',
+                error: error.message
+            };
+        }
+    }
+
+    // Get current user ID (simplified - in real app, use proper authentication)
+    getCurrentUserId() {
+        // For demo purposes, use a fixed user ID
+        // In a real application, this would come from the authentication system
+        return localStorage.getItem('currentUserId') || 'demo_user_123';
     }
 
     // Generate auto posts if needed
