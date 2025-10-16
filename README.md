@@ -4,6 +4,37 @@ Thai Exotic Plants - 태국 특이식물 전문 쇼핑몰
 
 ## 🚀 빠른 시작
 
+### 데이터베이스 설정 (Neon PostgreSQL)
+
+1. **Neon 데이터베이스 생성**
+   - https://neon.tech/ 에서 계정 생성
+   - 새 프로젝트 생성
+   - 데이터베이스 URL 복사
+
+2. **환경 변수 설정**
+   프로젝트 루트에 `.env` 파일을 생성하고 다음 내용을 입력하세요:
+   ```bash
+   # .env 파일 생성
+   DATABASE_URL=postgresql://username:password@hostname:port/database?sslmode=require
+   FACEBOOK_APP_ID=your_facebook_app_id
+   FACEBOOK_APP_SECRET=your_facebook_app_secret
+   FACEBOOK_REDIRECT_URI=http://localhost:3000/auth/facebook/callback
+   FACEBOOK_SCOPE=pages_show_list
+   PORT=3000
+   NODE_ENV=development
+   ```
+
+   **Neon 데이터베이스 URL 찾는 방법:**
+   1. Neon 대시보드에 로그인
+   2. 프로젝트 선택
+   3. "Connection Details" 클릭
+   4. "Connection string" 복사
+   5. `.env` 파일의 `DATABASE_URL`에 붙여넣기
+
+   **데이터베이스 없이 테스트하기:**
+   - `.env` 파일을 생성하지 않으면 fallback 데이터로 서버가 실행됩니다
+   - 실제 데이터베이스 기능을 사용하려면 Neon 설정이 필요합니다
+
 ### 서버 실행하기
 
 1. **의존성 설치**
@@ -33,6 +64,21 @@ Thai Exotic Plants - 태국 특이식물 전문 쇼핑몰
 - `GET /tables/orders?limit=1000` - 주문 목록
 - `GET /tables/social_posts?limit=100` - 소셜미디어 포스트 목록
 - `GET /tables/shops?limit=100` - 샵 목록
+- `POST /api/save-data` - 데이터 저장 (카테고리, 상품, 포스트 등)
+- `GET /api/export-data` - 모든 데이터 내보내기
+
+### 데이터베이스 기능
+
+**실제 데이터베이스 사용 시:**
+- 모든 데이터가 PostgreSQL에 영구 저장됩니다
+- 카테고리, 상품, 주문, 소셜 포스트, 샵, 미디어 아이템 관리
+- 자동 데이터 마이그레이션 및 샘플 데이터 삽입
+- 검색, 정렬, 페이지네이션 지원
+
+**Fallback 모드 (데이터베이스 없이):**
+- 메모리 기반 임시 데이터 사용
+- 서버 재시작 시 데이터 초기화
+- 기본적인 API 기능 제공
 
 ### Facebook API 설정
 

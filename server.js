@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const axios = require('axios');
 const config = require('./config');
+const { pool, initializeDatabase, insertSampleData } = require('./database');
 
 const app = express();
 const PORT = config.server.port;
@@ -17,276 +18,331 @@ app.use(express.static('.'));
 // Store for user access tokens (in production, use a database)
 const userTokens = new Map();
 
-// Mock data
-const categories = [
+// Initialize database on startup
+async function startServer() {
+    try {
+        await initializeDatabase();
+        await insertSampleData();
+        console.log('Database initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize database:', error);
+        console.log('Server will start without database. Please configure DATABASE_URL in .env file');
+        console.log('For now, using fallback mock data...');
+    }
+}
+
+// Fallback mock data
+const fallbackCategories = [
     {
-        id: '1',
-        name: '희귀 아로이드',
-        description: '몬스테라, 필로덴드론 등 희귀한 아로이드 계열',
-        image_url: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400',
-        is_active: true
-    },
-    {
-        id: '2',
-        name: '다육식물',
-        description: '태국 자생 다육식물과 선인장류',
-        image_url: 'https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?w=400',
-        is_active: true
-    },
-    {
-        id: '3',
+        id: 1,
         name: '관엽식물',
-        description: '실내에서 기르기 좋은 열대 관엽식물',
-        image_url: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400',
-        is_active: true
+        name_en: 'Foliage Plants',
+        name_th: 'พืชใบประดับ',
+        description: '아름다운 잎을 감상하는 식물들',
+        image_url: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400',
+        is_active: true,
+        created_at: new Date().toISOString()
     },
     {
-        id: '4',
+        id: 2,
+        name: '다육식물',
+        name_en: 'Succulents',
+        name_th: 'พืชอวบน้ำ',
+        description: '물을 적게 주어도 잘 자라는 식물들',
+        image_url: 'https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?w=400',
+        is_active: true,
+        created_at: new Date().toISOString()
+    },
+    {
+        id: 3,
         name: '꽃식물',
-        description: '아름다운 꽃을 피우는 열대 식물',
+        name_en: 'Flowering Plants',
+        name_th: 'พืชดอก',
+        description: '아름다운 꽃을 피우는 식물들',
         image_url: 'https://images.unsplash.com/photo-1440589473619-3cde28941638?w=400',
-        is_active: true
+        is_active: true,
+        created_at: new Date().toISOString()
+    },
+    {
+        id: 4,
+        name: '허브',
+        name_en: 'Herbs',
+        name_th: 'สมุนไพร',
+        description: '요리와 건강에 도움되는 허브들',
+        image_url: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400',
+        is_active: true,
+        created_at: new Date().toISOString()
     }
 ];
 
-const products = [
+const fallbackProducts = [
     {
-        id: '1',
-        name: 'Monstera Thai Constellation',
-        korean_name: '몬스테라 타이 컨스텔레이션',
+        id: 1,
+        name: '몬스테라 델리시오사',
+        name_en: 'Monstera Deliciosa',
+        name_th: 'มอนสเตอร่า เดลิซิโอซ่า',
+        description: '대형 잎이 아름다운 인기 관엽식물',
+        price: 25000,
+        category_id: 1,
+        stock_quantity: 10,
+        is_active: true,
+        created_at: new Date().toISOString()
+    },
+    {
+        id: 2,
+        name: '산세베리아',
+        name_en: 'Sansevieria',
+        name_th: 'ซานเซเวียเรีย',
+        description: '공기정화 효과가 뛰어난 다육식물',
         price: 15000,
-        price_usd: 450,
-        images: ['https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400'],
-        description: '아름다운 무늬를 자랑하는 희귀 몬스테라',
-        category_id: '1',
-        is_rare: true,
-        is_featured: true,
+        category_id: 2,
+        stock_quantity: 20,
         is_active: true,
-        stock_quantity: 5,
-        difficulty_level: '중급',
-        tags: ['몬스테라', '희귀종', '무늬'],
-        created_at: '2024-01-01T00:00:00Z'
+        created_at: new Date().toISOString()
     },
     {
-        id: '2',
-        name: 'Philodendron Pink Princess',
-        korean_name: '필로덴드론 핑크 프린세스',
-        price: 8500,
-        price_usd: 250,
-        images: ['https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400'],
-        description: '핑크색 무늬가 매력적인 필로덴드론',
-        category_id: '1',
-        is_rare: true,
-        is_featured: false,
-        is_active: true,
-        stock_quantity: 8,
-        difficulty_level: '중급',
-        tags: ['필로덴드론', '핑크', '무늬'],
-        created_at: '2024-01-02T00:00:00Z'
-    },
-    {
-        id: '3',
-        name: 'Aglaonema Red Valentine',
-        korean_name: '아글라오네마 레드 발렌타인',
-        price: 2800,
-        price_usd: 85,
-        images: ['https://images.unsplash.com/photo-1440589473619-3cde28941638?w=400'],
-        description: '빨간 잎이 아름다운 관엽식물',
-        category_id: '3',
-        is_rare: false,
-        is_featured: true,
-        is_active: true,
+        id: 3,
+        name: '안스리움',
+        name_en: 'Anthurium',
+        name_th: 'แอนทูเรียม',
+        description: '빨간 하트 모양 꽃이 아름다운 식물',
+        price: 18000,
+        category_id: 3,
         stock_quantity: 15,
-        difficulty_level: '초보',
-        tags: ['아글라오네마', '빨강', '초보자'],
-        created_at: '2024-01-03T00:00:00Z'
-    },
-    {
-        id: '4',
-        name: 'Haworthia Cooperi',
-        korean_name: '하월시아 쿠페리',
-        price: 1200,
-        price_usd: 35,
-        images: ['https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?w=400'],
-        description: '투명한 잎이 신비로운 다육식물',
-        category_id: '2',
-        is_rare: false,
-        is_featured: false,
         is_active: true,
-        stock_quantity: 25,
-        difficulty_level: '초보',
-        tags: ['하월시아', '다육식물', '투명'],
-        created_at: '2024-01-04T00:00:00Z'
-    }
-];
-
-// Mock data for additional endpoints
-const orders = [
-    {
-        id: '1',
-        customer_name: '김철수',
-        customer_email: 'kim@example.com',
-        total_amount: 15000,
-        status: 'pending',
-        payment_status: 'unpaid',
-        created_at: '2024-01-01T00:00:00Z',
-        items: [
-            { product_id: '1', quantity: 1, price: 15000 }
-        ]
-    },
-    {
-        id: '2',
-        customer_name: '이영희',
-        customer_email: 'lee@example.com',
-        total_amount: 8500,
-        status: 'processing',
-        payment_status: 'paid',
-        created_at: '2024-01-02T00:00:00Z',
-        items: [
-            { product_id: '2', quantity: 1, price: 8500 }
-        ]
-    }
-];
-
-const socialPosts = [
-    {
-        id: '1',
-        title: '새로운 몬스테라 도착!',
-        content: '태국에서 직접 가져온 희귀한 몬스테라를 만나보세요!',
-        platforms: ['facebook', 'instagram'],
-        status: 'published',
-        scheduled_time: '2024-01-01T10:00:00Z',
-        created_at: '2024-01-01T00:00:00Z'
-    },
-    {
-        id: '2',
-        title: '식물 관리 팁',
-        content: '식물을 건강하게 키우는 방법을 알려드립니다.',
-        platforms: ['facebook', 'twitter'],
-        status: 'scheduled',
-        scheduled_time: '2024-01-15T14:00:00Z',
-        created_at: '2024-01-05T00:00:00Z'
-    }
-];
-
-const shops = [
-    {
-        id: '1',
-        name: '태국 특이식물 샵',
-        description: '태국에서 직접 수집한 희귀한 식물들을 판매합니다.',
-        owner_name: '김태국',
-        contact_email: 'thai@example.com',
-        address: '서울시 강남구 테헤란로 123',
-        status: 'active',
-        product_count: 15,
-        created_at: '2024-01-01T00:00:00Z'
-    },
-    {
-        id: '2',
-        name: '정글 플랜트',
-        description: '열대 식물 전문 샵입니다.',
-        owner_name: '박정글',
-        contact_email: 'jungle@example.com',
-        address: '부산시 해운대구 센텀로 456',
-        status: 'active',
-        product_count: 8,
-        created_at: '2024-01-02T00:00:00Z'
+        created_at: new Date().toISOString()
     }
 ];
 
 // API Routes
-app.get('/tables/categories', (req, res) => {
-    const limit = parseInt(req.query.limit) || 100;
-    const filteredCategories = categories.slice(0, limit);
-    
-    res.json({
-        data: filteredCategories,
-        total: categories.length,
-        page: 1,
-        limit: limit
-    });
+app.get('/tables/categories', async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 100;
+        const result = await pool.query(
+            'SELECT * FROM categories WHERE is_active = true ORDER BY created_at DESC LIMIT $1',
+            [limit]
+        );
+        
+        res.json({
+            data: result.rows,
+            total: result.rows.length,
+            page: 1,
+            limit: limit
+        });
+    } catch (error) {
+        console.error('Error fetching categories from database, using fallback data:', error.message);
+        const limit = parseInt(req.query.limit) || 100;
+        const filteredCategories = fallbackCategories.slice(0, limit);
+        
+        res.json({
+            data: filteredCategories,
+            total: filteredCategories.length,
+            page: 1,
+            limit: limit
+        });
+    }
 });
 
-app.get('/tables/products', (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const search = req.query.search || '';
-    const sort = req.query.sort || 'name';
-    
-    let filteredProducts = [...products];
-    
-    // Apply search filter
-    if (search) {
-        filteredProducts = filteredProducts.filter(product => 
-            product.name.toLowerCase().includes(search.toLowerCase()) ||
-            product.korean_name.toLowerCase().includes(search.toLowerCase()) ||
-            product.description.toLowerCase().includes(search.toLowerCase())
-        );
-    }
-    
-    // Apply sorting
-    filteredProducts.sort((a, b) => {
-        let aVal = a[sort];
-        let bVal = b[sort];
+app.get('/tables/products', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const search = req.query.search || '';
+        const sort = req.query.sort || 'name';
+        const offset = (page - 1) * limit;
         
-        if (typeof aVal === 'string') {
-            aVal = aVal.toLowerCase();
-            bVal = bVal.toLowerCase();
+        let query = `
+            SELECT p.*, c.name as category_name 
+            FROM products p 
+            LEFT JOIN categories c ON p.category_id = c.id 
+            WHERE p.is_active = true
+        `;
+        let params = [];
+        let paramCount = 0;
+        
+        // Apply search filter
+        if (search) {
+            paramCount++;
+            query += ` AND (p.name ILIKE $${paramCount} OR p.name_en ILIKE $${paramCount} OR p.name_th ILIKE $${paramCount} OR p.description ILIKE $${paramCount})`;
+            params.push(`%${search}%`);
         }
         
-        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-    });
-    
-    // Apply pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
-    
-    res.json({
-        data: paginatedProducts,
-        total: filteredProducts.length,
-        page: page,
-        limit: limit
-    });
+        // Apply sorting
+        const validSortFields = ['name', 'price', 'created_at'];
+        const sortField = validSortFields.includes(sort) ? sort : 'name';
+        query += ` ORDER BY p.${sortField} ASC`;
+        
+        // Get total count
+        const countQuery = query.replace('SELECT p.*, c.name as category_name', 'SELECT COUNT(*)');
+        const countResult = await pool.query(countQuery, params);
+        const total = parseInt(countResult.rows[0].count);
+        
+        // Apply pagination
+        paramCount++;
+        query += ` LIMIT $${paramCount}`;
+        params.push(limit);
+        
+        paramCount++;
+        query += ` OFFSET $${paramCount}`;
+        params.push(offset);
+        
+        const result = await pool.query(query, params);
+        
+        res.json({
+            data: result.rows,
+            total: total,
+            page: page,
+            limit: limit
+        });
+    } catch (error) {
+        console.error('Error fetching products from database, using fallback data:', error.message);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const search = req.query.search || '';
+        const sort = req.query.sort || 'name';
+        
+        let filteredProducts = [...fallbackProducts];
+        
+        // Apply search filter
+        if (search) {
+            filteredProducts = filteredProducts.filter(product => 
+                product.name.toLowerCase().includes(search.toLowerCase()) ||
+                product.name_en.toLowerCase().includes(search.toLowerCase()) ||
+                product.name_th.toLowerCase().includes(search.toLowerCase()) ||
+                product.description.toLowerCase().includes(search.toLowerCase())
+            );
+        }
+        
+        // Apply sorting
+        filteredProducts.sort((a, b) => {
+            let aVal = a[sort];
+            let bVal = b[sort];
+            
+            if (typeof aVal === 'string') {
+                aVal = aVal.toLowerCase();
+                bVal = bVal.toLowerCase();
+            }
+            
+            return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+        });
+        
+        // Apply pagination
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+        
+        res.json({
+            data: paginatedProducts,
+            total: filteredProducts.length,
+            page: page,
+            limit: limit
+        });
+    }
 });
 
+// Fallback data for other endpoints
+const fallbackOrders = [];
+const fallbackSocialPosts = [];
+const fallbackShops = [
+    {
+        id: 1,
+        name: '타이 익조틱 플랜트',
+        name_en: 'Thai Exotic Plants',
+        name_th: 'ไทย เอ็กโซติก พลานท์',
+        description: '태국 최고의 이국적인 식물 전문점',
+        address: '서울시 강남구 테헤란로 123',
+        phone: '02-1234-5678',
+        email: 'info@thaiexoticplants.com',
+        is_active: true,
+        created_at: new Date().toISOString()
+    }
+];
+
 // Orders endpoint
-app.get('/tables/orders', (req, res) => {
-    const limit = parseInt(req.query.limit) || 1000;
-    const filteredOrders = orders.slice(0, limit);
-    
-    res.json({
-        data: filteredOrders,
-        total: orders.length,
-        page: 1,
-        limit: limit
-    });
+app.get('/tables/orders', async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 1000;
+        const result = await pool.query(
+            'SELECT * FROM orders ORDER BY created_at DESC LIMIT $1',
+            [limit]
+        );
+        
+        res.json({
+            data: result.rows,
+            total: result.rows.length,
+            page: 1,
+            limit: limit
+        });
+    } catch (error) {
+        console.error('Error fetching orders from database, using fallback data:', error.message);
+        const limit = parseInt(req.query.limit) || 1000;
+        const filteredOrders = fallbackOrders.slice(0, limit);
+        
+        res.json({
+            data: filteredOrders,
+            total: filteredOrders.length,
+            page: 1,
+            limit: limit
+        });
+    }
 });
 
 // Social posts endpoint
-app.get('/tables/social_posts', (req, res) => {
-    const limit = parseInt(req.query.limit) || 100;
-    const filteredPosts = socialPosts.slice(0, limit);
-    
-    res.json({
-        data: filteredPosts,
-        total: socialPosts.length,
-        page: 1,
-        limit: limit
-    });
+app.get('/tables/social_posts', async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 100;
+        const result = await pool.query(
+            'SELECT * FROM social_posts ORDER BY created_at DESC LIMIT $1',
+            [limit]
+        );
+        
+        res.json({
+            data: result.rows,
+            total: result.rows.length,
+            page: 1,
+            limit: limit
+        });
+    } catch (error) {
+        console.error('Error fetching social posts from database, using fallback data:', error.message);
+        const limit = parseInt(req.query.limit) || 100;
+        const filteredPosts = fallbackSocialPosts.slice(0, limit);
+        
+        res.json({
+            data: filteredPosts,
+            total: filteredPosts.length,
+            page: 1,
+            limit: limit
+        });
+    }
 });
 
 // Shops endpoint
-app.get('/tables/shops', (req, res) => {
-    const limit = parseInt(req.query.limit) || 100;
-    const filteredShops = shops.slice(0, limit);
-    
-    res.json({
-        data: filteredShops,
-        total: shops.length,
-        page: 1,
-        limit: limit
-    });
+app.get('/tables/shops', async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 100;
+        const result = await pool.query(
+            'SELECT * FROM shops WHERE is_active = true ORDER BY created_at DESC LIMIT $1',
+            [limit]
+        );
+        
+        res.json({
+            data: result.rows,
+            total: result.rows.length,
+            page: 1,
+            limit: limit
+        });
+    } catch (error) {
+        console.error('Error fetching shops from database, using fallback data:', error.message);
+        const limit = parseInt(req.query.limit) || 100;
+        const filteredShops = fallbackShops.slice(0, limit);
+        
+        res.json({
+            data: filteredShops,
+            total: filteredShops.length,
+            page: 1,
+            limit: limit
+        });
+    }
 });
 
 // Facebook OAuth endpoints
@@ -445,13 +501,49 @@ app.get('/api/facebook/status/:userId', (req, res) => {
 });
 
 // Data persistence endpoints
-app.post('/api/save-data', (req, res) => {
+app.post('/api/save-data', async (req, res) => {
     const { type, data } = req.body;
     
     try {
-        // In a real application, this would save to a database
-        // For now, we'll just acknowledge the save
-        console.log(`Saving ${type} data:`, data);
+        switch (type) {
+            case 'categories':
+                await pool.query(
+                    'INSERT INTO categories (name, name_en, name_th, description, image_url) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, name_en = EXCLUDED.name_en, name_th = EXCLUDED.name_th, description = EXCLUDED.description, image_url = EXCLUDED.image_url, updated_at = CURRENT_TIMESTAMP',
+                    [data.name, data.name_en, data.name_th, data.description, data.image_url]
+                );
+                break;
+                
+            case 'products':
+                await pool.query(
+                    'INSERT INTO products (name, name_en, name_th, description, price, category_id, image_url, stock_quantity) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, name_en = EXCLUDED.name_en, name_th = EXCLUDED.name_th, description = EXCLUDED.description, price = EXCLUDED.price, category_id = EXCLUDED.category_id, image_url = EXCLUDED.image_url, stock_quantity = EXCLUDED.stock_quantity, updated_at = CURRENT_TIMESTAMP',
+                    [data.name, data.name_en, data.name_th, data.description, data.price, data.category_id, data.image_url, data.stock_quantity || 0]
+                );
+                break;
+                
+            case 'socialPosts':
+                await pool.query(
+                    'INSERT INTO social_posts (title, content, type, platforms, hashtags, status) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.content, type = EXCLUDED.type, platforms = EXCLUDED.platforms, hashtags = EXCLUDED.hashtags, status = EXCLUDED.status, updated_at = CURRENT_TIMESTAMP',
+                    [data.title, data.content, data.type, data.platforms, data.hashtags, data.status || 'draft']
+                );
+                break;
+                
+            case 'generatedPosts':
+                await pool.query(
+                    'INSERT INTO generated_posts (title, content, type, platforms, hashtags, status, product_id, category_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.content, type = EXCLUDED.type, platforms = EXCLUDED.platforms, hashtags = EXCLUDED.hashtags, status = EXCLUDED.status, product_id = EXCLUDED.product_id, category_id = EXCLUDED.category_id, updated_at = CURRENT_TIMESTAMP',
+                    [data.title, data.content, data.type, data.platforms, data.hashtags, data.status || 'draft', data.product_id, data.category_id]
+                );
+                break;
+                
+            case 'mediaItems':
+                await pool.query(
+                    'INSERT INTO media_items (name, url, type, size, alt_text, tags) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, url = EXCLUDED.url, type = EXCLUDED.type, size = EXCLUDED.size, alt_text = EXCLUDED.alt_text, tags = EXCLUDED.tags',
+                    [data.name, data.url, data.type, data.size, data.alt_text, data.tags]
+                );
+                break;
+                
+            default:
+                console.log(`Unknown data type: ${type}`);
+        }
         
         res.json({
             success: true,
@@ -468,14 +560,22 @@ app.post('/api/save-data', (req, res) => {
 });
 
 // Get all data for export
-app.get('/api/export-data', (req, res) => {
+app.get('/api/export-data', async (req, res) => {
     try {
+        const [categoriesResult, productsResult, ordersResult, socialPostsResult, shopsResult] = await Promise.all([
+            pool.query('SELECT * FROM categories'),
+            pool.query('SELECT * FROM products'),
+            pool.query('SELECT * FROM orders'),
+            pool.query('SELECT * FROM social_posts'),
+            pool.query('SELECT * FROM shops')
+        ]);
+        
         const allData = {
-            categories: categories,
-            products: products,
-            orders: orders,
-            socialPosts: socialPosts,
-            shops: shops,
+            categories: categoriesResult.rows,
+            products: productsResult.rows,
+            orders: ordersResult.rows,
+            socialPosts: socialPostsResult.rows,
+            shops: shopsResult.rows,
             exportDate: new Date().toISOString()
         };
         
@@ -514,10 +614,15 @@ app.get('/shop-owner.html', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-    console.log('Available endpoints:');
-    console.log(`- GET /tables/categories?limit=100`);
-    console.log(`- GET /tables/products?page=1&limit=20&sort=name`);
-    console.log(`- Static files served from root directory`);
+startServer().then(() => {
+    app.listen(PORT, () => {
+        console.log(`Server running at http://localhost:${PORT}`);
+        console.log('Available endpoints:');
+        console.log(`- GET /tables/categories?limit=100`);
+        console.log(`- GET /tables/products?page=1&limit=20&sort=name`);
+        console.log(`- Static files served from root directory`);
+    });
+}).catch(error => {
+    console.error('Failed to start server:', error);
+    process.exit(1);
 });
