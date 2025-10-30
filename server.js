@@ -263,6 +263,18 @@ app.get('/tables/shops', async (req, res) => {
   }
 });
 
+// GET /tables/media_items
+app.get('/tables/media_items', async (req, res) => {
+  const limit = Math.max(1, parseInt(req.query.limit) || 1000);
+  try {
+    const result = await pool.query('SELECT * FROM media_items ORDER BY created_at DESC LIMIT $1', [limit]);
+    res.json({ data: result.rows, total: result.rows.length, page: 1, limit });
+  } catch (error) {
+    console.error('Error fetching media items (DB):', error.message || error);
+    res.json({ data: [], total: 0, page: 1, limit });
+  }
+});
+
 /* ---------------------
    Facebook OAuth routes
    --------------------- */
@@ -414,6 +426,46 @@ app.get('/api/facebook/status/:userId', async (req, res) => {
    Data persistence endpoints
    --------------------- */
 
+// DELETE media item(s)
+app.delete('/api/media-items/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query('DELETE FROM media_items WHERE id = $1 RETURNING id', [id]);
+    if (result.rowCount > 0) {
+      res.json({ success: true, message: 'Media item deleted successfully', id });
+    } else {
+      res.status(404).json({ success: false, error: 'Media item not found' });
+    }
+  } catch (err) {
+    console.error('Error deleting media item:', err);
+    res.status(500).json({ success: false, error: 'Failed to delete media item' });
+  }
+});
+
+// Bulk DELETE media items
+app.post('/api/media-items/bulk-delete', requireAdmin, async (req, res) => {
+  const { ids } = req.body;
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ success: false, error: 'ids array is required' });
+  }
+
+  try {
+    const placeholders = ids.map((_, idx) => `$${idx + 1}`).join(', ');
+    const result = await pool.query(
+      `DELETE FROM media_items WHERE id IN (${placeholders}) RETURNING id`,
+      ids
+    );
+    res.json({
+      success: true,
+      message: `${result.rowCount} media item(s) deleted successfully`,
+      deletedCount: result.rowCount
+    });
+  } catch (err) {
+    console.error('Error bulk deleting media items:', err);
+    res.status(500).json({ success: false, error: 'Failed to bulk delete media items' });
+  }
+});
+
 app.post('/api/save-data', requireAdmin, async (req, res) => {
   const { type, data } = req.body;
   if (!type || !data) return res.status(400).json({ success: false, error: 'type and data are required' });
@@ -445,10 +497,46 @@ app.post('/api/save-data', requireAdmin, async (req, res) => {
         break;
       }
       case 'mediaItems': {
-        const cols = ['name', 'url', 'type', 'size', 'alt_text', 'tags'];
-        const { text, values } = buildUpsertSQL('media_items', data, cols, 'id');
-        await pool.query(text, values);
-        break;
+        // Handle both single object and array of objects
+        const items = Array.isArray(data) ? data : [data];
+        const results = [];
+
+        for (const item of items) {
+          const cols = ['name', 'url', 'type', 'size', 'alt_text', 'tags'];
+
+          // If id is a string (from localStorage), we need to insert as new record
+          // and let DB generate the id
+          if (typeof item.id === 'string' || !item.id) {
+            // Insert without id, let DB generate it
+            const insertCols = cols.join(', ');
+            const placeholders = cols.map((_, idx) => `$${idx + 1}`).join(', ');
+            const insertValues = cols.map(col => item[col] !== undefined ? item[col] : null);
+
+            const insertQuery = `
+              INSERT INTO media_items (${insertCols})
+              VALUES (${placeholders})
+              ON CONFLICT DO NOTHING
+              RETURNING id
+            `;
+            const result = await pool.query(insertQuery, insertValues);
+            if (result.rows.length > 0) {
+              results.push(result.rows[0].id);
+            }
+          } else {
+            // Update existing record with numeric id
+            const { text, values } = buildUpsertSQL('media_items', item, cols, 'id');
+            await pool.query(text, values);
+            results.push(item.id);
+          }
+        }
+
+        res.json({
+          success: true,
+          message: `${items.length} media item(s) saved successfully`,
+          ids: results,
+          timestamp: new Date().toISOString()
+        });
+        return; // Early return since we already sent response
       }
       default:
         console.log(`Unknown data type: ${type}`);

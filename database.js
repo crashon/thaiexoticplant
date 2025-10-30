@@ -206,8 +206,16 @@ async function initializeDatabase() {
         size INTEGER,
         alt_text VARCHAR(255),
         tags TEXT[],
-        created_at TIMESTAMPTZ DEFAULT now()
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now()
       );
+    `);
+
+    await execSql(client, `
+      CREATE TRIGGER media_items_set_timestamp
+      BEFORE UPDATE ON media_items
+      FOR EACH ROW
+      EXECUTE FUNCTION trigger_set_timestamp();
     `);
 
     // generated_posts

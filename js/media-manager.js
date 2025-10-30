@@ -89,7 +89,30 @@ class MediaManager {
     // Load media items
     async loadMediaItems() {
         try {
-            // Try to load from localStorage first
+            // Try to load from server first
+            const response = await fetch('/tables/media_items?limit=1000');
+            if (response.ok) {
+                const result = await response.json();
+                if (result.data && Array.isArray(result.data) && result.data.length > 0) {
+                    // Convert DB fields to match frontend format
+                    this.mediaItems = result.data.map(item => ({
+                        id: item.id,
+                        name: item.name,
+                        url: item.url,
+                        type: item.type,
+                        size: item.size || 0,
+                        uploadDate: new Date(item.created_at).getTime(),
+                        alt: item.alt_text || '',
+                        tags: item.tags || []
+                    }));
+                    // Save to localStorage for offline access
+                    localStorage.setItem('thaiPlantsMediaItems', JSON.stringify(this.mediaItems));
+                    this.renderMediaGallery();
+                    return;
+                }
+            }
+
+            // Try to load from localStorage if server fails
             const stored = localStorage.getItem('thaiPlantsMediaItems');
             if (stored) {
                 // Migrate any legacy blob: URLs to null so they don't break on reload
@@ -100,20 +123,28 @@ class MediaManager {
                         return { ...item, url: null };
                     }
                     return item;
-                }) : [];
-                // Save back if we modified anything
-                this.saveMediaItems();
+                }).filter(item => item.url) : []; // Filter out items with null urls
                 this.renderMediaGallery();
                 return;
             }
-            
-            // If no stored data, load mock data and save to localStorage
-            this.mediaItems = await this.getMockMediaItems();
-            this.saveMediaItems();
+
+            // If no data at all, start with empty array
+            this.mediaItems = [];
             this.renderMediaGallery();
         } catch (error) {
             console.error('Error loading media items:', error);
-            this.mediaItems = [];
+            // Try localStorage as fallback
+            try {
+                const stored = localStorage.getItem('thaiPlantsMediaItems');
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    this.mediaItems = Array.isArray(parsed) ? parsed.filter(item => item && item.url && !item.url.startsWith('blob:')) : [];
+                } else {
+                    this.mediaItems = [];
+                }
+            } catch (e) {
+                this.mediaItems = [];
+            }
             this.renderMediaGallery();
         }
     }
@@ -720,7 +751,7 @@ class MediaManager {
     async saveMediaEdit(itemId) {
         const form = document.getElementById('edit-media-form');
         const formData = new FormData(form);
-        
+
         const itemIndex = this.mediaItems.findIndex(i => i.id === itemId);
         if (itemIndex === -1) return;
 
@@ -731,6 +762,9 @@ class MediaManager {
             tags: formData.get('tags') ? formData.get('tags').split(',').map(tag => tag.trim()) : []
         };
 
+        // Save to localStorage and sync to server
+        this.saveMediaItems();
+
         showNotification('미디어 정보가 업데이트되었습니다.', 'success');
         closeModal();
         this.renderMediaGallery();
@@ -740,12 +774,31 @@ class MediaManager {
     async deleteMedia(itemId) {
         if (!confirm('이 미디어를 삭제하시겠습니까?')) return;
 
+        // If itemId is numeric, delete from server
+        if (typeof itemId === 'number' || (typeof itemId === 'string' && /^\d+$/.test(itemId))) {
+            try {
+                const response = await fetch(`/api/media-items/${itemId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    console.warn('Failed to delete from server, continuing with local delete');
+                }
+            } catch (error) {
+                console.error('Error deleting from server:', error);
+            }
+        }
+
+        // Delete from local state
         this.mediaItems = this.mediaItems.filter(item => item.id !== itemId);
         this.selectedItems = this.selectedItems.filter(id => id !== itemId);
-        
+
         // Save changes to localStorage
-        this.saveMediaItems();
-        
+        localStorage.setItem('thaiPlantsMediaItems', JSON.stringify(this.mediaItems));
+
         showNotification('미디어가 삭제되었습니다.', 'success');
         this.renderMediaGallery();
     }
@@ -764,16 +817,41 @@ class MediaManager {
     // Bulk delete
     async bulkDelete() {
         if (this.selectedItems.length === 0) return;
-        
+
         if (!confirm(`선택된 ${this.selectedItems.length}개 미디어를 삭제하시겠습니까?`)) return;
 
+        // Filter numeric IDs for server deletion
+        const numericIds = this.selectedItems.filter(id =>
+            typeof id === 'number' || (typeof id === 'string' && /^\d+$/.test(id))
+        ).map(id => parseInt(id, 10));
+
+        // Delete from server if there are numeric IDs
+        if (numericIds.length > 0) {
+            try {
+                const response = await fetch('/api/media-items/bulk-delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ids: numericIds })
+                });
+
+                if (!response.ok) {
+                    console.warn('Failed to bulk delete from server, continuing with local delete');
+                }
+            } catch (error) {
+                console.error('Error bulk deleting from server:', error);
+            }
+        }
+
+        // Delete from local state
         this.mediaItems = this.mediaItems.filter(item => !this.selectedItems.includes(item.id));
         const deletedCount = this.selectedItems.length;
         this.selectedItems = [];
-        
+
         // Save changes to localStorage
-        this.saveMediaItems();
-        
+        localStorage.setItem('thaiPlantsMediaItems', JSON.stringify(this.mediaItems));
+
         showNotification(`${deletedCount}개 미디어가 삭제되었습니다.`, 'success');
         this.renderMediaGallery();
     }
