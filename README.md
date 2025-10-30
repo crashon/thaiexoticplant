@@ -42,30 +42,68 @@ Thai Exotic Plants - 태국 특이식물 전문 쇼핑몰
    npm install
    ```
 
-2. **서버 시작**
+2. **보안 키 생성** (프로덕션 환경 필수)
+   ```bash
+   # JWT Secret 생성
+   node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+
+   # Encryption Key 생성
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+   생성된 값을 .env 파일의 JWT_SECRET과 ENCRYPTION_KEY에 입력하세요.
+
+3. **서버 시작**
    ```bash
    npm start
    ```
 
-3. **개발 모드 (자동 재시작)**
+4. **개발 모드 (자동 재시작)**
    ```bash
    npm run dev
    ```
 
-4. **브라우저에서 접속**
+5. **테스트 실행**
+   ```bash
+   npm test                # 모든 테스트 실행
+   npm run test:watch      # 테스트 watch 모드
+   npm run test:coverage   # 커버리지 리포트
+   ```
+
+6. **브라우저에서 접속**
    - 메인 페이지: http://localhost:3000
    - 샵 목록: http://localhost:3000/shops.html
    - 관리자: http://localhost:3000/admin.html
 
 ### API 엔드포인트
 
+**인증 API (신규)**
+- `POST /api/auth/register` - 회원가입
+- `POST /api/auth/login` - 로그인
+- `GET /api/auth/me` - 현재 사용자 정보 (인증 필요)
+- `PUT /api/auth/profile` - 프로필 업데이트 (인증 필요)
+
+**상품 & 카테고리 API**
 - `GET /tables/categories?limit=100` - 카테고리 목록
-- `GET /tables/products?page=1&limit=20&sort=name` - 상품 목록
-- `GET /tables/orders?limit=1000` - 주문 목록
-- `GET /tables/social_posts?limit=100` - 소셜미디어 포스트 목록
-- `GET /tables/shops?limit=100` - 샵 목록
+- `GET /tables/products?page=1&limit=20&sort=name` - 상품 목록 (페이지네이션, 검색, 정렬)
+
+**주문 API (신규 개선)**
+- `POST /api/orders` - 주문 생성 (재고 확인 및 차감 포함)
+- `GET /tables/orders?limit=1000` - 주문 목록 (관리자)
+
+**관리자 API**
 - `POST /api/save-data` - 데이터 저장 (카테고리, 상품, 포스트 등)
 - `GET /api/export-data` - 모든 데이터 내보내기
+- `DELETE /api/media-items/:id` - 미디어 삭제
+- `POST /api/media-items/bulk-delete` - 미디어 일괄 삭제
+
+**소셜미디어 API**
+- `GET /tables/social_posts?limit=100` - 소셜미디어 포스트 목록
+- `GET /auth/facebook` - Facebook OAuth 시작
+- `GET /auth/facebook/callback` - Facebook OAuth 콜백
+- `POST /api/facebook/post` - Facebook 포스트 (관리자)
+
+**샵 API**
+- `GET /tables/shops?limit=100` - 샵 목록
 
 ### 데이터베이스 기능
 
@@ -133,6 +171,29 @@ Thai Exotic Plants는 태국 현지에서 희귀한 특이식물을 수집하여
 🌏 다국어 지원: 한국어, 영어, 태국어 상품명 및 설명
 
 🚀 현재 구현된 기능 및 추가 기능
+## 🔐 보안 기능 (2025-10-30 업데이트)
+
+### 새로 추가된 보안 기능
+- ✅ **사용자 인증 시스템**: JWT 기반 회원가입/로그인
+- ✅ **비밀번호 보안**: bcrypt 해싱 (saltRounds: 10)
+- ✅ **토큰 암호화**: AES-256-CBC로 OAuth 토큰 암호화
+- ✅ **Input Validation**: express-validator로 모든 입력 검증
+- ✅ **Rate Limiting**: IP 기반 요청 제한
+  - 일반 요청: 15분당 100회
+  - 인증 요청: 15분당 5회
+  - API 요청: 15분당 500회
+- ✅ **XSS 방지**: escapeHtml 함수 추가
+- ✅ **보안 헤더**: Helmet.js 적용
+- ✅ **Error Handling**: 전역 에러 핸들러
+- ✅ **404 핸들러**: 존재하지 않는 라우트 처리
+
+### 테스트 커버리지
+- ✅ Jest 테스트 프레임워크 설정
+- ✅ API 엔드포인트 테스트
+- ✅ Validation 테스트
+- ✅ 유틸리티 함수 테스트
+- ✅ E2E 시나리오 테스트
+
 ✅ 완료된 기능
 1. 데이터베이스 시스템
 

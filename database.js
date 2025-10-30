@@ -7,6 +7,7 @@
 // - pg_trgm extension + trigram indexes recommendations added
 
 const { Pool } = require('pg');
+const crypto = require('crypto');
 require('dotenv').config();
 
 // Ensure DATABASE_URL provided in production
@@ -259,6 +260,33 @@ async function initializeDatabase() {
       EXECUTE FUNCTION trigger_set_timestamp();
     `);
 
+    // users table for customer authentication
+    await execSql(client, `
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        phone VARCHAR(50),
+        address TEXT,
+        is_active BOOLEAN DEFAULT true,
+        is_admin BOOLEAN DEFAULT false,
+        last_login TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now()
+      );
+    `);
+
+    await execSql(client, `
+      CREATE TRIGGER users_set_timestamp
+      BEFORE UPDATE ON users
+      FOR EACH ROW
+      EXECUTE FUNCTION trigger_set_timestamp();
+    `);
+
+    // Create index on email for faster lookups
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);`);
+
     // Create trigram indexes for product search performance (if needed)
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_products_name_trgm ON products USING gin (name gin_trgm_ops);`);
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_products_description_trgm ON products USING gin (description gin_trgm_ops);`);
@@ -375,22 +403,88 @@ async function insertSampleData() {
 }
 
 /* ---------------------
+   Token Encryption Helpers
+   --------------------- */
+
+// Encryption settings
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32); // Must be 32 bytes for AES-256
+const ALGORITHM = 'aes-256-cbc';
+
+// Ensure ENCRYPTION_KEY is a Buffer
+const encryptionKey = typeof ENCRYPTION_KEY === 'string'
+  ? Buffer.from(ENCRYPTION_KEY, 'hex')
+  : ENCRYPTION_KEY;
+
+if (encryptionKey.length !== 32) {
+  console.error('ENCRYPTION_KEY must be 32 bytes (64 hex characters). Generating temporary key for development...');
+  // In production, this should fail - for development, generate a temporary key
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Invalid ENCRYPTION_KEY in production');
+  }
+}
+
+/**
+ * Encrypt a token using AES-256-CBC
+ */
+function encryptToken(token) {
+  const iv = crypto.randomBytes(16); // Initialization vector
+  const cipher = crypto.createCipheriv(ALGORITHM, encryptionKey, iv);
+
+  let encrypted = cipher.update(token, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+
+  // Return iv + encrypted data (iv is needed for decryption)
+  return iv.toString('hex') + ':' + encrypted;
+}
+
+/**
+ * Decrypt a token using AES-256-CBC
+ */
+function decryptToken(encryptedToken) {
+  try {
+    const parts = encryptedToken.split(':');
+    if (parts.length !== 2) {
+      throw new Error('Invalid encrypted token format');
+    }
+
+    const iv = Buffer.from(parts[0], 'hex');
+    const encrypted = parts[1];
+
+    const decipher = crypto.createDecipheriv(ALGORITHM, encryptionKey, iv);
+
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+
+    return decrypted;
+  } catch (err) {
+    console.error('Error decrypting token:', err.message);
+    return null;
+  }
+}
+
+/* ---------------------
    Token helpers
    --------------------- */
 async function saveUserToken(userId, accessToken) {
+  // Encrypt token before storing
+  const encryptedToken = encryptToken(accessToken);
+
   // upsert into user_tokens
   const text = `
     INSERT INTO user_tokens (user_id, access_token)
     VALUES ($1, $2)
     ON CONFLICT (user_id) DO UPDATE SET access_token = EXCLUDED.access_token, updated_at = now()
   `;
-  await pool.query(text, [String(userId), accessToken]);
+  await pool.query(text, [String(userId), encryptedToken]);
 }
 
 async function getUserToken(userId) {
   const result = await pool.query('SELECT access_token FROM user_tokens WHERE user_id = $1', [String(userId)]);
   if (result.rows.length === 0) return null;
-  return result.rows[0].access_token;
+
+  // Decrypt token before returning
+  const encryptedToken = result.rows[0].access_token;
+  return decryptToken(encryptedToken);
 }
 
 module.exports = {
