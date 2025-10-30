@@ -76,6 +76,7 @@ async function initializeDatabase() {
       );
     `);
 
+    await execSql(client, `DROP TRIGGER IF EXISTS categories_set_timestamp ON categories;`);
     await execSql(client, `
       CREATE TRIGGER categories_set_timestamp
       BEFORE UPDATE ON categories
@@ -103,6 +104,7 @@ async function initializeDatabase() {
       );
     `);
 
+    await execSql(client, `DROP TRIGGER IF EXISTS products_set_timestamp ON products;`);
     await execSql(client, `
       CREATE TRIGGER products_set_timestamp
       BEFORE UPDATE ON products
@@ -125,6 +127,7 @@ async function initializeDatabase() {
       );
     `);
 
+    await execSql(client, `DROP TRIGGER IF EXISTS orders_set_timestamp ON orders;`);
     await execSql(client, `
       CREATE TRIGGER orders_set_timestamp
       BEFORE UPDATE ON orders
@@ -161,6 +164,7 @@ async function initializeDatabase() {
       );
     `);
 
+    await execSql(client, `DROP TRIGGER IF EXISTS social_posts_set_timestamp ON social_posts;`);
     await execSql(client, `
       CREATE TRIGGER social_posts_set_timestamp
       BEFORE UPDATE ON social_posts
@@ -189,6 +193,7 @@ async function initializeDatabase() {
       );
     `);
 
+    await execSql(client, `DROP TRIGGER IF EXISTS shops_set_timestamp ON shops;`);
     await execSql(client, `
       CREATE TRIGGER shops_set_timestamp
       BEFORE UPDATE ON shops
@@ -211,6 +216,7 @@ async function initializeDatabase() {
       );
     `);
 
+    await execSql(client, `DROP TRIGGER IF EXISTS media_items_set_timestamp ON media_items;`);
     await execSql(client, `
       CREATE TRIGGER media_items_set_timestamp
       BEFORE UPDATE ON media_items
@@ -235,6 +241,7 @@ async function initializeDatabase() {
       );
     `);
 
+    await execSql(client, `DROP TRIGGER IF EXISTS generated_posts_set_timestamp ON generated_posts;`);
     await execSql(client, `
       CREATE TRIGGER generated_posts_set_timestamp
       BEFORE UPDATE ON generated_posts
@@ -252,6 +259,7 @@ async function initializeDatabase() {
       );
     `);
 
+    await execSql(client, `DROP TRIGGER IF EXISTS user_tokens_set_timestamp ON user_tokens;`);
     await execSql(client, `
       CREATE TRIGGER user_tokens_set_timestamp
       BEFORE UPDATE ON user_tokens

@@ -471,34 +471,48 @@ app.post('/api/save-data', requireAdmin, async (req, res) => {
   if (!type || !data) return res.status(400).json({ success: false, error: 'type and data are required' });
 
   try {
+    // Handle both single object and array of objects for all types
+    const items = Array.isArray(data) ? data : [data];
+    let savedCount = 0;
+
     switch (type) {
       case 'categories': {
         const cols = ['name', 'name_en', 'name_th', 'description', 'image_url'];
-        const { text, values } = buildUpsertSQL('categories', data, cols, 'id');
-        await pool.query(text, values);
+        for (const item of items) {
+          const { text, values } = buildUpsertSQL('categories', item, cols, 'id');
+          await pool.query(text, values);
+          savedCount++;
+        }
         break;
       }
       case 'products': {
         const cols = ['name', 'name_en', 'name_th', 'description', 'price', 'category_id', 'image_url', 'stock_quantity', 'is_active'];
-        const { text, values } = buildUpsertSQL('products', data, cols, 'id');
-        await pool.query(text, values);
+        for (const item of items) {
+          const { text, values } = buildUpsertSQL('products', item, cols, 'id');
+          await pool.query(text, values);
+          savedCount++;
+        }
         break;
       }
       case 'socialPosts': {
         const cols = ['title', 'content', 'type', 'platforms', 'hashtags', 'status', 'scheduled_at'];
-        const { text, values } = buildUpsertSQL('social_posts', data, cols, 'id');
-        await pool.query(text, values);
+        for (const item of items) {
+          const { text, values } = buildUpsertSQL('social_posts', item, cols, 'id');
+          await pool.query(text, values);
+          savedCount++;
+        }
         break;
       }
       case 'generatedPosts': {
         const cols = ['title', 'content', 'type', 'platforms', 'hashtags', 'status', 'product_id', 'category_id'];
-        const { text, values } = buildUpsertSQL('generated_posts', data, cols, 'id');
-        await pool.query(text, values);
+        for (const item of items) {
+          const { text, values } = buildUpsertSQL('generated_posts', item, cols, 'id');
+          await pool.query(text, values);
+          savedCount++;
+        }
         break;
       }
       case 'mediaItems': {
-        // Handle both single object and array of objects
-        const items = Array.isArray(data) ? data : [data];
         const results = [];
 
         for (const item of items) {
@@ -521,32 +535,31 @@ app.post('/api/save-data', requireAdmin, async (req, res) => {
             const result = await pool.query(insertQuery, insertValues);
             if (result.rows.length > 0) {
               results.push(result.rows[0].id);
+              savedCount++;
             }
           } else {
             // Update existing record with numeric id
             const { text, values } = buildUpsertSQL('media_items', item, cols, 'id');
             await pool.query(text, values);
             results.push(item.id);
+            savedCount++;
           }
         }
-
-        res.json({
-          success: true,
-          message: `${items.length} media item(s) saved successfully`,
-          ids: results,
-          timestamp: new Date().toISOString()
-        });
-        return; // Early return since we already sent response
+        break;
       }
       default:
         console.log(`Unknown data type: ${type}`);
         return res.status(400).json({ success: false, error: 'Unknown type' });
     }
 
-    res.json({ success: true, message: `${type} data saved successfully`, timestamp: new Date().toISOString() });
+    res.json({
+      success: true,
+      message: `${savedCount} ${type} item(s) saved successfully`,
+      timestamp: new Date().toISOString()
+    });
   } catch (err) {
     console.error(`Error saving ${type} data:`, err);
-    res.status(500).json({ success: false, error: `Failed to save ${type} data` });
+    res.status(500).json({ success: false, error: `Failed to save ${type} data: ${err.message}` });
   }
 });
 
