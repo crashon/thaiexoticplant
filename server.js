@@ -276,6 +276,264 @@ app.get('/tables/media_items', async (req, res) => {
 });
 
 /* ---------------------
+   Reviews API Routes
+   --------------------- */
+
+// GET /tables/reviews - Get all reviews (admin)
+app.get('/tables/reviews', async (req, res) => {
+  const limit = Math.max(1, parseInt(req.query.limit) || 100);
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const offset = (page - 1) * limit;
+
+  try {
+    const countResult = await pool.query('SELECT COUNT(*) FROM reviews');
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    const result = await pool.query(
+      `SELECT r.*, p.name as product_name, p.name_en as product_name_en
+       FROM reviews r
+       LEFT JOIN products p ON r.product_id = p.id
+       ORDER BY r.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+
+    res.json({ data: result.rows, total, page, limit });
+  } catch (error) {
+    console.error('Error fetching reviews (DB):', error.message || error);
+    res.json({ data: [], total: 0, page, limit });
+  }
+});
+
+// GET /tables/reviews/product/:productId - Get reviews for a specific product
+app.get('/tables/reviews/product/:productId', async (req, res) => {
+  const { productId } = req.params;
+  const limit = Math.max(1, parseInt(req.query.limit) || 50);
+  const onlyApproved = req.query.approved !== 'false'; // default to only approved
+
+  try {
+    let query = `
+      SELECT r.*, p.name as product_name, p.name_en as product_name_en
+      FROM reviews r
+      LEFT JOIN products p ON r.product_id = p.id
+      WHERE r.product_id = $1
+    `;
+
+    if (onlyApproved) {
+      query += ' AND r.is_approved = true';
+    }
+
+    query += ' ORDER BY r.created_at DESC LIMIT $2';
+
+    const result = await pool.query(query, [productId, limit]);
+    res.json({ data: result.rows, total: result.rows.length, productId });
+  } catch (error) {
+    console.error('Error fetching product reviews (DB):', error.message || error);
+    res.json({ data: [], total: 0, productId });
+  }
+});
+
+// GET /tables/reviews/stats/:productId - Get review statistics for a product
+app.get('/tables/reviews/stats/:productId', async (req, res) => {
+  const { productId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `SELECT
+        COUNT(*) as total_reviews,
+        COALESCE(AVG(rating), 0) as average_rating,
+        COUNT(CASE WHEN rating = 5 THEN 1 END) as rating_5,
+        COUNT(CASE WHEN rating = 4 THEN 1 END) as rating_4,
+        COUNT(CASE WHEN rating = 3 THEN 1 END) as rating_3,
+        COUNT(CASE WHEN rating = 2 THEN 1 END) as rating_2,
+        COUNT(CASE WHEN rating = 1 THEN 1 END) as rating_1,
+        COUNT(CASE WHEN is_verified = true THEN 1 END) as verified_reviews
+       FROM reviews
+       WHERE product_id = $1 AND is_approved = true`,
+      [productId]
+    );
+
+    const stats = result.rows[0];
+    res.json({
+      success: true,
+      productId,
+      stats: {
+        totalReviews: parseInt(stats.total_reviews, 10),
+        averageRating: parseFloat(stats.average_rating).toFixed(1),
+        ratingDistribution: {
+          5: parseInt(stats.rating_5, 10),
+          4: parseInt(stats.rating_4, 10),
+          3: parseInt(stats.rating_3, 10),
+          2: parseInt(stats.rating_2, 10),
+          1: parseInt(stats.rating_1, 10)
+        },
+        verifiedReviews: parseInt(stats.verified_reviews, 10)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching review stats (DB):', error.message || error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch review statistics',
+      productId
+    });
+  }
+});
+
+// POST /api/reviews - Create a new review (public)
+app.post('/api/reviews', async (req, res) => {
+  const { productId, customerName, customerEmail, rating, comment } = req.body;
+
+  // Validation
+  if (!productId || !customerName || !customerEmail || !rating) {
+    return res.status(400).json({
+      success: false,
+      error: 'productId, customerName, customerEmail, and rating are required'
+    });
+  }
+
+  if (rating < 1 || rating > 5) {
+    return res.status(400).json({
+      success: false,
+      error: 'Rating must be between 1 and 5'
+    });
+  }
+
+  try {
+    // Check if product exists
+    const productCheck = await pool.query('SELECT id FROM products WHERE id = $1', [productId]);
+    if (productCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Product not found' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO reviews (product_id, customer_name, customer_email, rating, comment, is_approved)
+       VALUES ($1, $2, $3, $4, $5, true)
+       RETURNING *`,
+      [productId, customerName, customerEmail, rating, comment || null]
+    );
+
+    res.json({
+      success: true,
+      message: 'Review submitted successfully',
+      review: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error creating review:', error);
+    res.status(500).json({ success: false, error: 'Failed to submit review' });
+  }
+});
+
+// PUT /api/reviews/:id - Update a review (admin only)
+app.put('/api/reviews/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { customerName, customerEmail, rating, comment, isVerified, isApproved } = req.body;
+
+  try {
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (customerName !== undefined) {
+      updates.push(`customer_name = $${paramIndex++}`);
+      values.push(customerName);
+    }
+    if (customerEmail !== undefined) {
+      updates.push(`customer_email = $${paramIndex++}`);
+      values.push(customerEmail);
+    }
+    if (rating !== undefined) {
+      if (rating < 1 || rating > 5) {
+        return res.status(400).json({ success: false, error: 'Rating must be between 1 and 5' });
+      }
+      updates.push(`rating = $${paramIndex++}`);
+      values.push(rating);
+    }
+    if (comment !== undefined) {
+      updates.push(`comment = $${paramIndex++}`);
+      values.push(comment);
+    }
+    if (isVerified !== undefined) {
+      updates.push(`is_verified = $${paramIndex++}`);
+      values.push(isVerified);
+    }
+    if (isApproved !== undefined) {
+      updates.push(`is_approved = $${paramIndex++}`);
+      values.push(isApproved);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, error: 'No fields to update' });
+    }
+
+    values.push(id);
+    const query = `UPDATE reviews SET ${updates.join(', ')}, updated_at = now() WHERE id = $${paramIndex} RETURNING *`;
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Review not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Review updated successfully',
+      review: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error updating review:', error);
+    res.status(500).json({ success: false, error: 'Failed to update review' });
+  }
+});
+
+// PUT /api/reviews/:id/approve - Approve a review (admin only)
+app.put('/api/reviews/:id/approve', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      'UPDATE reviews SET is_approved = true, updated_at = now() WHERE id = $1 RETURNING *',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Review not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Review approved successfully',
+      review: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error approving review:', error);
+    res.status(500).json({ success: false, error: 'Failed to approve review' });
+  }
+});
+
+// DELETE /api/reviews/:id - Delete a review (admin only)
+app.delete('/api/reviews/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query('DELETE FROM reviews WHERE id = $1 RETURNING id', [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Review not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Review deleted successfully',
+      id
+    });
+  } catch (error) {
+    console.error('Error deleting review:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete review' });
+  }
+});
+
+/* ---------------------
    Facebook OAuth routes
    --------------------- */
 

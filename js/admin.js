@@ -3341,7 +3341,7 @@ function loadProductsForDropdown() {
 function loadCategoriesForDropdown() {
     const plantCategory = document.getElementById('plant-category');
     if (!plantCategory) return;
-    
+
     plantCategory.innerHTML = '<option value="">카테고리를 선택하세요</option>';
     adminDashboard.categories.forEach(category => {
         const option = document.createElement('option');
@@ -3350,3 +3350,269 @@ function loadCategoriesForDropdown() {
         plantCategory.appendChild(option);
     });
 }
+
+/* ===========================================
+   REVIEWS MANAGEMENT
+   =========================================== */
+
+let reviewsData = [];
+let reviewsPage = 1;
+let reviewsFilter = 'all';
+
+// Load reviews
+async function loadReviews() {
+    try {
+        const response = await fetch(`/tables/reviews?page=${reviewsPage}&limit=50&approved=false`);
+        const result = await response.json();
+        reviewsData = result.data || [];
+        renderReviews();
+        updateReviewsStats();
+    } catch (error) {
+        console.error('Error loading reviews:', error);
+        showNotification('리뷰를 불러오는데 실패했습니다.', 'error');
+    }
+}
+
+// Render reviews table
+function renderReviews() {
+    const tbody = document.getElementById('reviews-table-body');
+    if (!tbody) return;
+
+    const filteredReviews = filterReviewsByStatus();
+
+    if (filteredReviews.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="px-6 py-8 text-center text-gray-500">
+                    <i class="fas fa-inbox text-4xl mb-2"></i>
+                    <p>리뷰가 없습니다.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filteredReviews.map(review => {
+        const date = new Date(review.created_at).toLocaleDateString('ko-KR');
+        const stars = renderStarsForAdmin(review.rating);
+        const statusBadge = review.is_approved
+            ? '<span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">승인됨</span>'
+            : '<span class="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs">대기중</span>';
+        const verifiedBadge = review.is_verified
+            ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs ml-1">인증</span>'
+            : '';
+
+        return `
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">${escapeHtml(review.product_name || '알 수 없음')}</div>
+                    <div class="text-sm text-gray-500">${escapeHtml(review.product_name_en || '')}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">${escapeHtml(review.customer_name)}</div>
+                    <div class="text-sm text-gray-500">${escapeHtml(review.customer_email)}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    ${stars}
+                </td>
+                <td class="px-6 py-4">
+                    <div class="text-sm text-gray-900 max-w-xs truncate">${escapeHtml(review.comment || '내용 없음')}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    ${statusBadge}${verifiedBadge}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    ${date}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div class="flex gap-2">
+                        ${!review.is_approved ? `
+                            <button onclick="approveReview(${review.id})"
+                                    class="text-green-600 hover:text-green-900"
+                                    title="승인">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        ` : ''}
+                        <button onclick="editReview(${review.id})"
+                                class="text-blue-600 hover:text-blue-900"
+                                title="수정">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteReview(${review.id})"
+                                class="text-red-600 hover:text-red-900"
+                                title="삭제">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    // Update pagination info
+    document.getElementById('reviews-showing').textContent = filteredReviews.length;
+    document.getElementById('reviews-total').textContent = reviewsData.length;
+}
+
+// Render stars for admin view
+function renderStarsForAdmin(rating) {
+    let stars = '';
+    for (let i = 1; i <= 5; i++) {
+        stars += i <= rating
+            ? '<i class="fas fa-star text-yellow-400 text-sm"></i>'
+            : '<i class="far fa-star text-gray-300 text-sm"></i>';
+    }
+    return stars;
+}
+
+// Filter reviews by status
+function filterReviewsByStatus() {
+    const searchTerm = document.getElementById('review-search')?.value.toLowerCase() || '';
+
+    let filtered = reviewsData;
+
+    // Apply status filter
+    switch (reviewsFilter) {
+        case 'approved':
+            filtered = filtered.filter(r => r.is_approved);
+            break;
+        case 'pending':
+            filtered = filtered.filter(r => !r.is_approved);
+            break;
+        case 'verified':
+            filtered = filtered.filter(r => r.is_verified);
+            break;
+    }
+
+    // Apply search filter
+    if (searchTerm) {
+        filtered = filtered.filter(r =>
+            (r.product_name && r.product_name.toLowerCase().includes(searchTerm)) ||
+            (r.customer_name && r.customer_name.toLowerCase().includes(searchTerm)) ||
+            (r.customer_email && r.customer_email.toLowerCase().includes(searchTerm))
+        );
+    }
+
+    return filtered;
+}
+
+// Update reviews statistics
+function updateReviewsStats() {
+    const totalReviews = reviewsData.length;
+    const pendingReviews = reviewsData.filter(r => !r.is_approved).length;
+    const verifiedReviews = reviewsData.filter(r => r.is_verified).length;
+    const averageRating = totalReviews > 0
+        ? (reviewsData.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
+        : '0.0';
+
+    document.getElementById('total-reviews-count').textContent = totalReviews;
+    document.getElementById('pending-reviews-count').textContent = pendingReviews;
+    document.getElementById('verified-reviews-count').textContent = verifiedReviews;
+    document.getElementById('average-rating').textContent = averageRating;
+}
+
+// Approve review
+async function approveReview(reviewId) {
+    if (!confirm('이 리뷰를 승인하시겠습니까?')) return;
+
+    try {
+        const response = await fetch(`/api/reviews/${reviewId}/approve`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showNotification('리뷰가 승인되었습니다.', 'success');
+            await loadReviews();
+        } else {
+            showNotification(result.error || '리뷰 승인에 실패했습니다.', 'error');
+        }
+    } catch (error) {
+        console.error('Error approving review:', error);
+        showNotification('리뷰 승인 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+// Delete review
+async function deleteReview(reviewId) {
+    if (!confirm('이 리뷰를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+
+    try {
+        const response = await fetch(`/api/reviews/${reviewId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showNotification('리뷰가 삭제되었습니다.', 'success');
+            await loadReviews();
+        } else {
+            showNotification(result.error || '리뷰 삭제에 실패했습니다.', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting review:', error);
+        showNotification('리뷰 삭제 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+// Edit review (placeholder - would show modal for editing)
+function editReview(reviewId) {
+    const review = reviewsData.find(r => r.id === reviewId);
+    if (!review) return;
+
+    // TODO: Implement edit modal
+    alert('리뷰 수정 기능은 곧 추가됩니다.\n\n' +
+          `고객: ${review.customer_name}\n` +
+          `평점: ${review.rating}점\n` +
+          `내용: ${review.comment}`);
+}
+
+// Refresh reviews
+function refreshReviews() {
+    loadReviews();
+}
+
+// Filter reviews
+function filterReviews() {
+    reviewsFilter = document.getElementById('review-filter')?.value || 'all';
+    renderReviews();
+}
+
+// Pagination functions
+function loadPreviousReviews() {
+    if (reviewsPage > 1) {
+        reviewsPage--;
+        loadReviews();
+    }
+}
+
+function loadNextReviews() {
+    reviewsPage++;
+    loadReviews();
+}
+
+// HTML escape utility
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Initialize reviews section when shown
+const originalShowSection = window.showSection;
+window.showSection = function(sectionName) {
+    if (originalShowSection) {
+        originalShowSection(sectionName);
+    }
+
+    if (sectionName === 'reviews') {
+        loadReviews();
+    }
+};

@@ -374,27 +374,27 @@ function showProductDetail(productId) {
     const modal = document.createElement('div');
     modal.className = 'modal show';
     modal.innerHTML = `
-        <div class="modal-content">
-            <div class="flex justify-between items-center mb-4">
+        <div class="modal-content max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4 sticky top-0 bg-white z-10 pb-4">
                 <h2 class="text-2xl font-bold text-thai-green">${product.name}</h2>
                 <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
-            
+
             <div class="mb-4">
-                ${product.images && product.images.length > 0 ? 
+                ${product.images && product.images.length > 0 ?
                     `<img src="${product.images[0]}" alt="${product.name}" class="w-full h-64 object-cover rounded-lg">` :
                     `<div class="w-full h-64 bg-gray-200 flex items-center justify-center rounded-lg">
                         <i class="fas fa-seedling text-6xl text-gray-400"></i>
                     </div>`
                 }
             </div>
-            
+
             <div class="mb-4">
                 <h3 class="font-semibold text-lg mb-2">${product.korean_name}</h3>
                 <p class="text-gray-600 mb-4">${product.description}</p>
-                
+
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div>
                         <span class="block text-sm font-medium text-gray-500">가격</span>
@@ -406,12 +406,12 @@ function showProductDetail(productId) {
                         <span class="text-lg">${product.difficulty_level}</span>
                     </div>
                 </div>
-                
+
                 <div class="mb-4">
                     <span class="block text-sm font-medium text-gray-500 mb-2">재고</span>
                     <span class="text-lg">${product.stock_quantity}개 남음</span>
                 </div>
-                
+
                 ${product.tags ? `
                     <div class="mb-4">
                         <span class="block text-sm font-medium text-gray-500 mb-2">태그</span>
@@ -423,15 +423,33 @@ function showProductDetail(productId) {
                     </div>
                 ` : ''}
             </div>
-            
-            <button onclick="addToCart('${product.id}'); closeModal();" 
-                    class="w-full bg-plant-green text-white py-3 rounded-lg hover:bg-green-600 transition duration-300">
+
+            <button onclick="addToCart('${product.id}');"
+                    class="w-full bg-plant-green text-white py-3 rounded-lg hover:bg-green-600 transition duration-300 mb-6">
                 <i class="fas fa-cart-plus mr-2"></i>장바구니에 추가
             </button>
+
+            <!-- Reviews Section -->
+            <div class="border-t pt-6 mt-6">
+                <!-- Review Statistics -->
+                <div id="review-stats-container"></div>
+
+                <!-- Review Form -->
+                <div id="review-form-container" class="mb-6"></div>
+
+                <!-- Reviews List -->
+                <div id="reviews-list-container"></div>
+            </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
+
+    // Load reviews after modal is rendered
+    if (window.ReviewsManager) {
+        ReviewsManager.renderReviewForm(productId, 'review-form-container');
+        ReviewsManager.loadProductReviews(productId);
+    }
 }
 
 function closeModal() {

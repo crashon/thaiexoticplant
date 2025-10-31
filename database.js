@@ -259,6 +259,34 @@ async function initializeDatabase() {
       EXECUTE FUNCTION trigger_set_timestamp();
     `);
 
+    // reviews
+    await execSql(client, `
+      CREATE TABLE IF NOT EXISTS reviews (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+        shop_id INTEGER REFERENCES shops(id) ON DELETE SET NULL,
+        customer_name VARCHAR(255) NOT NULL,
+        customer_email VARCHAR(255) NOT NULL,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        comment TEXT,
+        is_verified BOOLEAN DEFAULT false,
+        is_approved BOOLEAN DEFAULT false,
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now()
+      );
+    `);
+
+    await execSql(client, `
+      CREATE TRIGGER reviews_set_timestamp
+      BEFORE UPDATE ON reviews
+      FOR EACH ROW
+      EXECUTE FUNCTION trigger_set_timestamp();
+    `);
+
+    // Create index for faster product review queries
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_reviews_product_id ON reviews(product_id);`);
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_reviews_shop_id ON reviews(shop_id);`);
+
     // Create trigram indexes for product search performance (if needed)
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_products_name_trgm ON products USING gin (name gin_trgm_ops);`);
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_products_description_trgm ON products USING gin (description gin_trgm_ops);`);
@@ -360,6 +388,55 @@ async function insertSampleData() {
          VALUES ($1,$2,$3,$4,$5,$6,$7,true)
          ON CONFLICT (id) DO NOTHING`,
         [s.name, s.name_en, s.name_th, s.description, s.address, s.phone, s.email]
+      );
+    }
+
+    // Insert sample reviews
+    const reviews = [
+      {
+        product_id: 1,
+        customer_name: '김민수',
+        customer_email: 'minsu@example.com',
+        rating: 5,
+        comment: '정말 건강하고 아름다운 식물이에요! 포장도 꼼꼼하게 되어 있어서 안전하게 받았습니다.',
+        is_verified: true,
+        is_approved: true
+      },
+      {
+        product_id: 1,
+        customer_name: '이영희',
+        customer_email: 'younghee@example.com',
+        rating: 4,
+        comment: '잎이 크고 건강해 보여요. 다만 배송이 조금 늦어서 별 하나 뺐습니다.',
+        is_verified: true,
+        is_approved: true
+      },
+      {
+        product_id: 2,
+        customer_name: '박철수',
+        customer_email: 'chulsoo@example.com',
+        rating: 5,
+        comment: '키우기 쉽고 공기정화에도 좋다고 해서 구매했는데 만족스럽습니다!',
+        is_verified: true,
+        is_approved: true
+      },
+      {
+        product_id: 3,
+        customer_name: '정미영',
+        customer_email: 'miyoung@example.com',
+        rating: 5,
+        comment: '꽃이 정말 예뻐요! 사무실에 두니까 분위기가 확 살아났어요.',
+        is_verified: false,
+        is_approved: true
+      }
+    ];
+
+    for (const r of reviews) {
+      await client.query(
+        `INSERT INTO reviews (product_id, customer_name, customer_email, rating, comment, is_verified, is_approved)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT (id) DO NOTHING`,
+        [r.product_id, r.customer_name, r.customer_email, r.rating, r.comment, r.is_verified, r.is_approved]
       );
     }
 

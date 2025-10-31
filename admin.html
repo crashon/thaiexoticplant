@@ -100,14 +100,21 @@
                         </a>
                     </li>
                     <li>
-                        <a href="#media" onclick="showSection('media')" 
+                        <a href="#media" onclick="showSection('media')"
                            class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
                             <i class="fas fa-images"></i>
                             <span data-i18n="navigation.media">미디어 관리</span>
                         </a>
                     </li>
                     <li>
-                        <a href="#analytics" onclick="showSection('analytics')" 
+                        <a href="#reviews" onclick="showSection('reviews')"
+                           class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
+                            <i class="fas fa-star"></i>
+                            <span data-i18n="navigation.reviews">리뷰 관리</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#analytics" onclick="showSection('analytics')"
                            class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
                             <i class="fas fa-chart-line"></i>
                             <span data-i18n="navigation.analytics">소셜미디어 분석</span>
@@ -587,6 +594,108 @@
                     </div>
                     <div id="media-gallery" class="p-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                         <!-- Media items will be loaded here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reviews Section -->
+            <section id="reviews-section" class="admin-section hidden">
+                <div class="mb-8 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-3xl font-bold text-thai-green mb-2">리뷰 관리</h2>
+                        <p class="text-gray-600">고객 리뷰를 관리하고 승인할 수 있습니다</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="refreshReviews()"
+                                class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition duration-200">
+                            <i class="fas fa-sync-alt mr-2"></i>새로고침
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Reviews Stats -->
+                <div class="grid md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-600">전체 리뷰</span>
+                            <i class="fas fa-star text-2xl text-yellow-400"></i>
+                        </div>
+                        <div class="text-3xl font-bold text-thai-green" id="total-reviews-count">0</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-600">승인 대기</span>
+                            <i class="fas fa-clock text-2xl text-orange-400"></i>
+                        </div>
+                        <div class="text-3xl font-bold text-orange-500" id="pending-reviews-count">0</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-600">평균 평점</span>
+                            <i class="fas fa-chart-line text-2xl text-green-400"></i>
+                        </div>
+                        <div class="text-3xl font-bold text-green-600" id="average-rating">0.0</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-600">인증 리뷰</span>
+                            <i class="fas fa-check-circle text-2xl text-blue-400"></i>
+                        </div>
+                        <div class="text-3xl font-bold text-blue-600" id="verified-reviews-count">0</div>
+                    </div>
+                </div>
+
+                <!-- Reviews Table -->
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="p-6 border-b">
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <input type="text" id="review-search" placeholder="상품명 또는 고객명으로 검색..."
+                                   class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plant-green focus:border-transparent">
+                            <select id="review-filter" onchange="filterReviews()"
+                                    class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plant-green focus:border-transparent">
+                                <option value="all">전체 리뷰</option>
+                                <option value="approved">승인됨</option>
+                                <option value="pending">승인 대기</option>
+                                <option value="verified">인증된 리뷰</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">고객</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">평점</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">내용</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작성일</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reviews-table-body" class="bg-white divide-y divide-gray-200">
+                                <!-- Reviews will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="px-6 py-4 bg-gray-50 border-t">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-600">
+                                <span id="reviews-showing">0</span>개의 리뷰 중 <span id="reviews-total">0</span>개 표시
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="loadPreviousReviews()"
+                                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <button onclick="loadNextReviews()"
+                                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
