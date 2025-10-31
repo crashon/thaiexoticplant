@@ -1,5 +1,19 @@
 // Admin Dashboard functionality for Thai Exotic Plants
 
+/**
+ * Escape HTML to prevent XSS attacks
+ * TODO: Replace all innerHTML usage with safe alternatives or proper escaping
+ */
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 class AdminDashboard {
     constructor() {
         this.currentSection = 'dashboard';

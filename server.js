@@ -4,11 +4,75 @@ const cors = require('cors');
 const path = require('path');
 const axios = require('axios');
 const crypto = require('crypto');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { body, param, query, validationResult } = require('express-validator');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const config = require('./config');
 const { pool, initializeDatabase, insertSampleData, saveUserToken, getUserToken } = require('./database');
 
+// JWT secret (should be in .env in production)
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
+const JWT_EXPIRES_IN = '7d'; // Token expires in 7 days
+
 const app = express();
 const PORT = config.server.port;
+
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for now (can be configured later)
+  crossOriginEmbedderPolicy: false
+}));
+
+// Rate limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 auth requests per windowMs
+  message: 'Too many authentication attempts, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500, // More permissive for API endpoints
+  message: 'Too many API requests, please try again later.',
+});
+
+// Apply general rate limiting to all routes
+app.use(generalLimiter);
+
+// Validation middleware helper
+const validate = (validations) => {
+  return async (req, res, next) => {
+    for (let validation of validations) {
+      const result = await validation.run(req);
+      if (result.errors.length) break;
+    }
+
+    const errors = validationResult(req);
+    if (errors.isEmpty()) {
+      return next();
+    }
+
+    res.status(400).json({
+      success: false,
+      errors: errors.array().map(err => ({
+        field: err.param,
+        message: err.msg
+      }))
+    });
+  };
+};
 
 // Middleware
 const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -30,8 +94,9 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Serve static files from public folder (do NOT expose repo root)
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files from root folder
+// NOTE: In production, move all frontend files to a 'public' folder for better security
+app.use(express.static(__dirname));
 
 /**
  * Admin middleware
@@ -50,6 +115,60 @@ function requireAdmin(req, res, next) {
   }
   if (token && token === expected) return next();
   return res.status(401).json({ error: 'Unauthorized' });
+}
+
+/**
+ * JWT Authentication middleware
+ * - Verifies JWT token from Authorization header
+ * - Adds user info to req.user
+ */
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      error: 'No token provided. Please include Authorization header with Bearer token.'
+    });
+  }
+
+  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded; // Add user info to request
+    next();
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Token expired. Please log in again.'
+      });
+    }
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid token.'
+    });
+  }
+}
+
+/**
+ * Optional auth middleware - doesn't fail if no token
+ */
+function optionalAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.user = decoded;
+    } catch (err) {
+      // Ignore invalid tokens in optional auth
+    }
+  }
+
+  next();
 }
 
 /**
@@ -128,6 +247,255 @@ const fallbackShops = [
 
 /* ---------------------
    API Routes
+   --------------------- */
+
+/* ---------------------
+   User Authentication Routes
+   --------------------- */
+
+// POST /api/auth/register - User registration
+app.post('/api/auth/register',
+  authLimiter,
+  validate([
+    body('email').trim().notEmpty().withMessage('Email is required')
+      .isEmail().withMessage('Invalid email format')
+      .normalizeEmail(),
+    body('password').notEmpty().withMessage('Password is required')
+      .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+    body('name').trim().notEmpty().withMessage('Name is required')
+      .isLength({ min: 2, max: 255 }).withMessage('Name must be between 2 and 255 characters'),
+    body('phone').optional().trim()
+      .matches(/^[0-9\-\+\(\)\s]+$/).withMessage('Invalid phone number format'),
+    body('address').optional().trim()
+      .isLength({ max: 1000 }).withMessage('Address must not exceed 1000 characters')
+  ]),
+  async (req, res) => {
+    const { email, password, name, phone, address } = req.body;
+
+    try {
+      // Check if user already exists
+      const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+      if (existingUser.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email already registered'
+        });
+      }
+
+      // Hash password
+      const password_hash = await bcrypt.hash(password, 10);
+
+      // Insert new user
+      const result = await pool.query(
+        `INSERT INTO users (email, password_hash, name, phone, address)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, email, name, phone, address, is_active, is_admin, created_at`,
+        [email, password_hash, name, phone || null, address || null]
+      );
+
+      const user = result.rows[0];
+
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          is_admin: user.is_admin
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+      );
+
+      res.status(201).json({
+        success: true,
+        message: 'User registered successfully',
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          phone: user.phone,
+          address: user.address,
+          is_admin: user.is_admin
+        },
+        token
+      });
+    } catch (err) {
+      console.error('Error registering user:', err);
+      res.status(500).json({ success: false, error: 'Failed to register user' });
+    }
+  }
+);
+
+// POST /api/auth/login - User login
+app.post('/api/auth/login',
+  authLimiter,
+  validate([
+    body('email').trim().notEmpty().withMessage('Email is required')
+      .isEmail().withMessage('Invalid email format')
+      .normalizeEmail(),
+    body('password').notEmpty().withMessage('Password is required')
+  ]),
+  async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+      // Find user
+      const result = await pool.query(
+        'SELECT id, email, password_hash, name, phone, address, is_active, is_admin FROM users WHERE email = $1',
+        [email]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid email or password'
+        });
+      }
+
+      const user = result.rows[0];
+
+      // Check if user is active
+      if (!user.is_active) {
+        return res.status(403).json({
+          success: false,
+          error: 'Account is disabled. Please contact support.'
+        });
+      }
+
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, user.password_hash);
+      if (!isValidPassword) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid email or password'
+        });
+      }
+
+      // Update last login
+      await pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
+
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          is_admin: user.is_admin
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+      );
+
+      res.json({
+        success: true,
+        message: 'Login successful',
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          phone: user.phone,
+          address: user.address,
+          is_admin: user.is_admin
+        },
+        token
+      });
+    } catch (err) {
+      console.error('Error logging in:', err);
+      res.status(500).json({ success: false, error: 'Failed to log in' });
+    }
+  }
+);
+
+// GET /api/auth/me - Get current user info (requires authentication)
+app.get('/api/auth/me', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, email, name, phone, address, is_active, is_admin, last_login, created_at FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      user: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Error fetching user info:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch user info' });
+  }
+});
+
+// PUT /api/auth/profile - Update user profile (requires authentication)
+app.put('/api/auth/profile',
+  requireAuth,
+  validate([
+    body('name').optional().trim()
+      .isLength({ min: 2, max: 255 }).withMessage('Name must be between 2 and 255 characters'),
+    body('phone').optional().trim()
+      .matches(/^[0-9\-\+\(\)\s]+$/).withMessage('Invalid phone number format'),
+    body('address').optional().trim()
+      .isLength({ max: 1000 }).withMessage('Address must not exceed 1000 characters')
+  ]),
+  async (req, res) => {
+    const { name, phone, address } = req.body;
+
+    try {
+      const updates = [];
+      const values = [];
+      let paramCount = 1;
+
+      if (name !== undefined) {
+        updates.push(`name = $${paramCount++}`);
+        values.push(name);
+      }
+      if (phone !== undefined) {
+        updates.push(`phone = $${paramCount++}`);
+        values.push(phone);
+      }
+      if (address !== undefined) {
+        updates.push(`address = $${paramCount++}`);
+        values.push(address);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'No fields to update'
+        });
+      }
+
+      values.push(req.user.id);
+      const query = `
+        UPDATE users
+        SET ${updates.join(', ')}
+        WHERE id = $${paramCount}
+        RETURNING id, email, name, phone, address, is_admin
+      `;
+
+      const result = await pool.query(query, values);
+
+      res.json({
+        success: true,
+        message: 'Profile updated successfully',
+        user: result.rows[0]
+      });
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      res.status(500).json({ success: false, error: 'Failed to update profile' });
+    }
+  }
+);
+
+/* ---------------------
+   Product & Category Routes
    --------------------- */
 
 // GET /tables/categories
@@ -234,6 +602,102 @@ app.get('/tables/orders', async (req, res) => {
     console.error('Error fetching orders (DB):', error.message || error);
     const filtered = fallbackOrders.slice(0, limit);
     res.json({ data: filtered, total: filtered.length, page: 1, limit });
+  }
+});
+
+// POST /api/orders - Create a new order
+app.post('/api/orders',
+  apiLimiter,
+  validate([
+    body('customer_name').trim().notEmpty().withMessage('Customer name is required')
+      .isLength({ min: 2, max: 255 }).withMessage('Customer name must be between 2 and 255 characters'),
+    body('customer_email').trim().notEmpty().withMessage('Customer email is required')
+      .isEmail().withMessage('Invalid email format')
+      .normalizeEmail(),
+    body('customer_phone').optional().trim()
+      .matches(/^[0-9\-\+\(\)\s]+$/).withMessage('Invalid phone number format'),
+    body('shipping_address').trim().notEmpty().withMessage('Shipping address is required')
+      .isLength({ min: 10, max: 1000 }).withMessage('Shipping address must be between 10 and 1000 characters'),
+    body('items').isArray({ min: 1 }).withMessage('Items must be a non-empty array'),
+    body('items.*.product_id').isInt({ min: 1 }).withMessage('Each item must have a valid product_id'),
+    body('items.*.quantity').isInt({ min: 1 }).withMessage('Each item quantity must be at least 1'),
+    body('items.*.price').isFloat({ min: 0 }).withMessage('Each item price must be non-negative')
+  ]),
+  async (req, res) => {
+  const { customer_name, customer_email, customer_phone, shipping_address, items } = req.body;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Calculate total amount
+    let total_amount = 0;
+    for (const item of items) {
+      total_amount += parseFloat(item.price) * parseInt(item.quantity);
+    }
+
+    // Insert order
+    const orderResult = await client.query(
+      `INSERT INTO orders (customer_name, customer_email, customer_phone, shipping_address, total_amount, status)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, customer_name, customer_email, customer_phone, shipping_address, total_amount, status, created_at`,
+      [customer_name, customer_email, customer_phone || null, shipping_address, total_amount.toFixed(2), 'pending']
+    );
+
+    const order = orderResult.rows[0];
+
+    // Insert order items and update stock
+    const orderItems = [];
+    for (const item of items) {
+      // Insert order item
+      const itemResult = await client.query(
+        `INSERT INTO order_items (order_id, product_id, quantity, price)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, order_id, product_id, quantity, price, created_at`,
+        [order.id, item.product_id, item.quantity, item.price]
+      );
+      orderItems.push(itemResult.rows[0]);
+
+      // Update product stock (optional - check if product exists and has enough stock)
+      const productResult = await client.query(
+        'SELECT stock_quantity FROM products WHERE id = $1',
+        [item.product_id]
+      );
+
+      if (productResult.rows.length > 0) {
+        const currentStock = productResult.rows[0].stock_quantity;
+        if (currentStock < item.quantity) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            success: false,
+            error: `Insufficient stock for product ${item.product_id}. Available: ${currentStock}, Requested: ${item.quantity}`
+          });
+        }
+
+        // Decrease stock
+        await client.query(
+          'UPDATE products SET stock_quantity = stock_quantity - $1 WHERE id = $2',
+          [item.quantity, item.product_id]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: 'Order created successfully',
+      order: {
+        ...order,
+        items: orderItems
+      }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error creating order:', err);
+    res.status(500).json({ success: false, error: 'Failed to create order' });
+  } finally {
+    client.release();
   }
 });
 
@@ -578,13 +1042,83 @@ app.get('/api/export-data', requireAdmin, async (req, res) => {
 });
 
 /* ---------------------
-   Static HTML routes (serve from public/)
+   Static HTML routes
    --------------------- */
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/shops.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'shops.html')));
-app.get('/shop.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'shop.html')));
-app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
-app.get('/shop-owner.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'shop-owner.html')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/shops.html', (req, res) => res.sendFile(path.join(__dirname, 'shops.html')));
+app.get('/shop.html', (req, res) => res.sendFile(path.join(__dirname, 'shop.html')));
+app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
+app.get('/shop-owner.html', (req, res) => res.sendFile(path.join(__dirname, 'shop-owner.html')));
+
+/* ---------------------
+   Error Handling Middleware
+   --------------------- */
+
+// 404 handler - must be after all routes
+app.use((req, res, next) => {
+  res.status(404).json({
+    success: false,
+    error: 'Route not found',
+    path: req.path,
+    method: req.method
+  });
+});
+
+// Global error handler - must be last
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+
+  // Handle specific error types
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      success: false,
+      error: 'Validation failed',
+      details: err.message
+    });
+  }
+
+  if (err.name === 'UnauthorizedError') {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+      details: err.message
+    });
+  }
+
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({
+      success: false,
+      error: 'File too large'
+    });
+  }
+
+  // CORS errors
+  if (err.message && err.message.includes('CORS')) {
+    return res.status(403).json({
+      success: false,
+      error: 'CORS policy violation',
+      details: err.message
+    });
+  }
+
+  // Database errors
+  if (err.code && err.code.startsWith('23')) { // PostgreSQL constraint violations
+    return res.status(400).json({
+      success: false,
+      error: 'Database constraint violation',
+      details: process.env.NODE_ENV === 'production' ? 'Invalid data' : err.message
+    });
+  }
+
+  // Default error response
+  res.status(err.status || 500).json({
+    success: false,
+    error: process.env.NODE_ENV === 'production'
+      ? 'Internal server error'
+      : err.message || 'An unexpected error occurred',
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+  });
+});
 
 /* ---------------------
    Start server
@@ -595,6 +1129,7 @@ startServer().then(() => {
     console.log('Available endpoints:');
     console.log('- GET /tables/categories?limit=100');
     console.log('- GET /tables/products?page=1&limit=20&sort=name');
+    console.log('- POST /api/orders (create new order)');
     console.log('- Protected endpoints require x-admin-token header or ADMIN_API_TOKEN in query');
   });
 }).catch(error => {
