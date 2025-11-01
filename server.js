@@ -1370,6 +1370,202 @@ app.delete('/api/shipments/:id', requireAdmin, async (req, res) => {
 });
 
 /* ---------------------
+   Inventory Alert API endpoints
+   --------------------- */
+
+// Get all inventory alerts (admin only)
+app.get('/api/inventory/alerts', requireAdmin, async (req, res) => {
+  const limit = Math.max(1, parseInt(req.query.limit) || 100);
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const offset = (page - 1) * limit;
+  const status = req.query.status;
+  const alertType = req.query.type;
+
+  try {
+    let whereClause = [];
+    let params = [];
+    let paramIndex = 1;
+
+    if (status && status !== 'all') {
+      whereClause.push(`a.status = $${paramIndex}`);
+      params.push(status);
+      paramIndex++;
+    }
+
+    if (alertType && alertType !== 'all') {
+      whereClause.push(`a.alert_type = $${paramIndex}`);
+      params.push(alertType);
+      paramIndex++;
+    }
+
+    const whereSQL = whereClause.length > 0 ? 'WHERE ' + whereClause.join(' AND ') : '';
+
+    const countResult = await pool.query(`SELECT COUNT(*) FROM inventory_alerts a ${whereSQL}`, params);
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    params.push(limit, offset);
+    const result = await pool.query(
+      `SELECT a.*, p.name as product_name, p.stock_quantity as current_stock
+       FROM inventory_alerts a
+       LEFT JOIN products p ON a.product_id = p.id
+       ${whereSQL}
+       ORDER BY a.created_at DESC
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      params
+    );
+
+    res.json({ success: true, alerts: result.rows, total, page, limit });
+  } catch (error) {
+    console.error('Error fetching inventory alerts:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch inventory alerts' });
+  }
+});
+
+// Get inventory history for a product (admin only)
+app.get('/api/inventory/history/:productId', requireAdmin, async (req, res) => {
+  const { productId } = req.params;
+  const limit = Math.max(1, parseInt(req.query.limit) || 50);
+  const offset = parseInt(req.query.offset) || 0;
+
+  try {
+    const result = await pool.query(
+      `SELECT * FROM inventory_history
+       WHERE product_id = $1
+       ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [productId, limit, offset]
+    );
+
+    res.json({ success: true, history: result.rows });
+  } catch (error) {
+    console.error('Error fetching inventory history:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch inventory history' });
+  }
+});
+
+// Get low stock products (admin only)
+app.get('/api/inventory/low-stock', requireAdmin, async (req, res) => {
+  const threshold = parseInt(req.query.threshold) || config.inventory.lowStockThreshold;
+
+  try {
+    const result = await pool.query(
+      `SELECT p.*, c.name as category_name
+       FROM products p
+       LEFT JOIN categories c ON p.category_id = c.id
+       WHERE p.stock_quantity <= $1 AND p.is_active = true
+       ORDER BY p.stock_quantity ASC`,
+      [threshold]
+    );
+
+    res.json({ success: true, products: result.rows, threshold });
+  } catch (error) {
+    console.error('Error fetching low stock products:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch low stock products' });
+  }
+});
+
+// Update product inventory (admin only)
+app.post('/api/inventory/update', requireAdmin, async (req, res) => {
+  const { product_id, quantity_change, reason, changed_by } = req.body;
+
+  if (!product_id || quantity_change === undefined) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing required fields: product_id, quantity_change'
+    });
+  }
+
+  try {
+    // Get current product quantity
+    const productResult = await pool.query(
+      'SELECT stock_quantity, name FROM products WHERE id = $1',
+      [product_id]
+    );
+
+    if (productResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Product not found' });
+    }
+
+    const currentQuantity = parseInt(productResult.rows[0].stock_quantity, 10);
+    const newQuantity = currentQuantity + parseInt(quantity_change, 10);
+
+    if (newQuantity < 0) {
+      return res.status(400).json({ success: false, error: 'Insufficient stock' });
+    }
+
+    // Update product quantity
+    await pool.query(
+      'UPDATE products SET stock_quantity = $1, updated_at = now() WHERE id = $2',
+      [newQuantity, product_id]
+    );
+
+    // Record inventory history
+    const changeType = quantity_change > 0 ? 'restock' : 'sale';
+    await pool.query(
+      `INSERT INTO inventory_history
+       (product_id, change_type, previous_quantity, new_quantity, quantity_change, reason, changed_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [product_id, changeType, currentQuantity, newQuantity, quantity_change, reason, changed_by]
+    );
+
+    // Check if we need to create or update alerts
+    await checkInventoryAlerts(product_id, newQuantity, productResult.rows[0].name);
+
+    res.json({ success: true, previous_quantity: currentQuantity, new_quantity: newQuantity });
+  } catch (error) {
+    console.error('Error updating inventory:', error);
+    res.status(500).json({ success: false, error: 'Failed to update inventory' });
+  }
+});
+
+// Resolve inventory alert (admin only)
+app.put('/api/inventory/alerts/:id/resolve', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      `UPDATE inventory_alerts
+       SET status = 'resolved', resolved_at = now(), updated_at = now()
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Alert not found' });
+    }
+
+    res.json({ success: true, alert: result.rows[0] });
+  } catch (error) {
+    console.error('Error resolving alert:', error);
+    res.status(500).json({ success: false, error: 'Failed to resolve alert' });
+  }
+});
+
+// Get notification logs (admin only)
+app.get('/api/inventory/notifications', requireAdmin, async (req, res) => {
+  const limit = Math.max(1, parseInt(req.query.limit) || 50);
+  const offset = parseInt(req.query.offset) || 0;
+
+  try {
+    const result = await pool.query(
+      `SELECT n.*, a.product_id, p.name as product_name
+       FROM notification_logs n
+       LEFT JOIN inventory_alerts a ON n.alert_id = a.id
+       LEFT JOIN products p ON a.product_id = p.id
+       ORDER BY n.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+
+    res.json({ success: true, notifications: result.rows });
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch notifications' });
+  }
+});
+
+/* ---------------------
    Static HTML routes (serve from public/)
    --------------------- */
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
@@ -1378,6 +1574,266 @@ app.get('/shop.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 
 app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/shop-owner.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'shop-owner.html')));
 app.get('/tracking.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'tracking.html')));
+
+/* ---------------------
+   Inventory Alert System
+   --------------------- */
+
+/**
+ * Check inventory levels and create/update alerts
+ */
+async function checkInventoryAlerts(productId, currentQuantity, productName) {
+  try {
+    let alertType = null;
+    let threshold = 0;
+
+    // Determine alert type based on thresholds
+    if (currentQuantity <= config.inventory.outOfStockThreshold) {
+      alertType = 'out_of_stock';
+      threshold = config.inventory.outOfStockThreshold;
+    } else if (currentQuantity <= config.inventory.criticalStockThreshold) {
+      alertType = 'critical_stock';
+      threshold = config.inventory.criticalStockThreshold;
+    } else if (currentQuantity <= config.inventory.lowStockThreshold) {
+      alertType = 'low_stock';
+      threshold = config.inventory.lowStockThreshold;
+    }
+
+    if (alertType) {
+      // Check if alert already exists
+      const existingAlert = await pool.query(
+        `SELECT * FROM inventory_alerts
+         WHERE product_id = $1 AND status = 'active'
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [productId]
+      );
+
+      if (existingAlert.rows.length > 0) {
+        // Update existing alert
+        const alert = existingAlert.rows[0];
+        await pool.query(
+          `UPDATE inventory_alerts
+           SET current_quantity = $1, alert_type = $2, threshold_quantity = $3, updated_at = now()
+           WHERE id = $4`,
+          [currentQuantity, alertType, threshold, alert.id]
+        );
+
+        // Send notification if cooldown period has passed
+        if (!alert.last_notified_at ||
+            (new Date() - new Date(alert.last_notified_at)) > config.inventory.notificationCooldown) {
+          await sendInventoryNotification(alert.id, productId, productName, alertType, currentQuantity, threshold);
+        }
+      } else {
+        // Create new alert
+        const result = await pool.query(
+          `INSERT INTO inventory_alerts
+           (product_id, alert_type, threshold_quantity, current_quantity, status)
+           VALUES ($1, $2, $3, $4, 'active')
+           RETURNING id`,
+          [productId, alertType, threshold, currentQuantity]
+        );
+
+        // Send notification for new alert
+        await sendInventoryNotification(result.rows[0].id, productId, productName, alertType, currentQuantity, threshold);
+      }
+    } else {
+      // Stock is healthy, resolve any active alerts
+      await pool.query(
+        `UPDATE inventory_alerts
+         SET status = 'resolved', resolved_at = now(), updated_at = now()
+         WHERE product_id = $1 AND status = 'active'`,
+        [productId]
+      );
+    }
+  } catch (error) {
+    console.error('Error checking inventory alerts:', error);
+  }
+}
+
+/**
+ * Send inventory notification (email/SMS)
+ */
+async function sendInventoryNotification(alertId, productId, productName, alertType, currentQuantity, threshold) {
+  try {
+    const alertMessages = {
+      'out_of_stock': `재고 소진: ${productName}의 재고가 소진되었습니다. 현재 수량: ${currentQuantity}`,
+      'critical_stock': `긴급 재고 부족: ${productName}의 재고가 매우 부족합니다. 현재 수량: ${currentQuantity} (임계값: ${threshold})`,
+      'low_stock': `재고 부족 경고: ${productName}의 재고가 부족합니다. 현재 수량: ${currentQuantity} (임계값: ${threshold})`
+    };
+
+    const message = alertMessages[alertType] || `재고 알림: ${productName}`;
+    const subject = `[Thai Exotic Plants] ${alertMessages[alertType]?.split(':')[0]}`;
+
+    // Send email notifications
+    if (config.inventory.enableEmailNotifications && config.inventory.adminEmails.length > 0) {
+      for (const email of config.inventory.adminEmails) {
+        await sendEmailNotification(alertId, email, subject, message);
+      }
+    }
+
+    // Send SMS notifications
+    if (config.inventory.enableSMSNotifications && config.inventory.adminPhones.length > 0) {
+      for (const phone of config.inventory.adminPhones) {
+        await sendSMSNotification(alertId, phone, message);
+      }
+    }
+
+    // Update alert notification time and count
+    await pool.query(
+      `UPDATE inventory_alerts
+       SET last_notified_at = now(), notification_count = notification_count + 1, updated_at = now()
+       WHERE id = $1`,
+      [alertId]
+    );
+  } catch (error) {
+    console.error('Error sending inventory notification:', error);
+  }
+}
+
+/**
+ * Send email notification
+ */
+async function sendEmailNotification(alertId, recipient, subject, message) {
+  try {
+    // Log notification attempt
+    const logResult = await pool.query(
+      `INSERT INTO notification_logs
+       (alert_id, notification_type, recipient, subject, message, status)
+       VALUES ($1, 'email', $2, $3, $4, 'pending')
+       RETURNING id`,
+      [alertId, recipient, subject, message]
+    );
+
+    const logId = logResult.rows[0].id;
+
+    // TODO: Integrate with actual email service (nodemailer, SendGrid, AWS SES, etc.)
+    // For now, just log that we would send the email
+    console.log(`[Email Notification] To: ${recipient}, Subject: ${subject}`);
+    console.log(`[Email Notification] Message: ${message}`);
+
+    // In production, uncomment and configure:
+    // const nodemailer = require('nodemailer');
+    // const transporter = nodemailer.createTransport({
+    //   service: config.email.service,
+    //   auth: {
+    //     user: config.email.user,
+    //     pass: config.email.password
+    //   }
+    // });
+    //
+    // await transporter.sendMail({
+    //   from: config.email.from,
+    //   to: recipient,
+    //   subject: subject,
+    //   text: message
+    // });
+
+    // Mark as sent
+    await pool.query(
+      `UPDATE notification_logs
+       SET status = 'sent', sent_at = now()
+       WHERE id = $1`,
+      [logId]
+    );
+  } catch (error) {
+    console.error('Error sending email:', error);
+    // Log error
+    await pool.query(
+      `UPDATE notification_logs
+       SET status = 'failed', error_message = $1
+       WHERE alert_id = $2 AND recipient = $3 AND notification_type = 'email'`,
+      [error.message, alertId, recipient]
+    );
+  }
+}
+
+/**
+ * Send SMS notification
+ */
+async function sendSMSNotification(alertId, recipient, message) {
+  try {
+    // Log notification attempt
+    const logResult = await pool.query(
+      `INSERT INTO notification_logs
+       (alert_id, notification_type, recipient, message, status)
+       VALUES ($1, 'sms', $2, $3, 'pending')
+       RETURNING id`,
+      [alertId, recipient, message]
+    );
+
+    const logId = logResult.rows[0].id;
+
+    // TODO: Integrate with actual SMS service (Twilio, AWS SNS, etc.)
+    // For now, just log that we would send the SMS
+    console.log(`[SMS Notification] To: ${recipient}, Message: ${message}`);
+
+    // In production, uncomment and configure:
+    // const twilio = require('twilio');
+    // const client = twilio(config.sms.accountSid, config.sms.authToken);
+    //
+    // await client.messages.create({
+    //   body: message,
+    //   from: config.sms.fromNumber,
+    //   to: recipient
+    // });
+
+    // Mark as sent
+    await pool.query(
+      `UPDATE notification_logs
+       SET status = 'sent', sent_at = now()
+       WHERE id = $1`,
+      [logId]
+    );
+  } catch (error) {
+    console.error('Error sending SMS:', error);
+    // Log error
+    await pool.query(
+      `UPDATE notification_logs
+       SET status = 'failed', error_message = $1
+       WHERE alert_id = $2 AND recipient = $3 AND notification_type = 'sms'`,
+      [error.message, alertId, recipient]
+    );
+  }
+}
+
+/**
+ * Automated inventory checking
+ */
+async function checkAllInventory() {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, stock_quantity
+       FROM products
+       WHERE is_active = true
+       ORDER BY stock_quantity ASC`
+    );
+
+    console.log(`Checking inventory for ${result.rows.length} active products...`);
+
+    for (const product of result.rows) {
+      await checkInventoryAlerts(product.id, product.stock_quantity, product.name);
+    }
+
+    console.log('Inventory check completed.');
+  } catch (error) {
+    console.error('Error checking inventory:', error);
+  }
+}
+
+/**
+ * Start automated inventory monitoring
+ */
+function startInventoryMonitoring() {
+  const interval = config.inventory.checkInterval;
+  console.log(`Starting inventory monitoring system (interval: ${interval}ms)`);
+
+  // Run immediately on startup
+  checkAllInventory();
+
+  // Schedule periodic checks
+  setInterval(checkAllInventory, interval);
+}
 
 /* ---------------------
    Shipping Auto-Update System
@@ -1454,6 +1910,13 @@ startServer().then(() => {
     console.log('- GET /tables/categories?limit=100');
     console.log('- GET /tables/products?page=1&limit=20&sort=name');
     console.log('- Protected endpoints require x-admin-token header or ADMIN_API_TOKEN in query');
+
+    // Start inventory monitoring system
+    if (process.env.ENABLE_INVENTORY_MONITORING !== 'false') {
+      startInventoryMonitoring();
+    } else {
+      console.log('Inventory monitoring is disabled. Set ENABLE_INVENTORY_MONITORING=true to enable.');
+    }
 
     // Start shipping auto-update system
     if (process.env.ENABLE_SHIPPING_AUTO_UPDATE === 'true') {

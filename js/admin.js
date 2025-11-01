@@ -3619,6 +3619,8 @@ window.showSection = function(sectionName) {
     } else if (sectionName === 'shipments') {
         loadCarriers();
         loadShipments();
+    } else if (sectionName === 'inventory') {
+        loadInventoryAlerts();
     }
 };
 
@@ -4114,3 +4116,211 @@ function getStatusText(status) {
     };
     return statusMap[status] || status;
 }
+
+/* =====================================
+   INVENTORY MANAGEMENT FUNCTIONS
+   ===================================== */
+
+let inventoryAlerts = [];
+let lowStockProducts = [];
+let currentInventoryTab = "alerts";
+
+async function loadInventoryAlerts() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/inventory/alerts?status=active`);
+        const data = await response.json();
+        if (data.success) {
+            inventoryAlerts = data.alerts || [];
+            renderInventoryAlerts();
+            updateAlertStats();
+        }
+    } catch (error) { console.error("Error loading inventory alerts:", error); }
+}
+
+async function loadLowStockProducts() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/inventory/low-stock`);
+        const data = await response.json();
+        if (data.success) {
+            lowStockProducts = data.products || [];
+            renderLowStockProducts();
+        }
+    } catch (error) { console.error("Error loading low stock products:", error); }
+}
+
+function renderInventoryAlerts() {
+    const tbody = document.getElementById("alertsTableBody");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    if (inventoryAlerts.length === 0) {
+        tbody.innerHTML = "<tr><td colspan=\"6\" class=\"px-6 py-4 text-center text-gray-500\">활성 알림이 없습니다</td></tr>";
+        return;
+    }
+    inventoryAlerts.forEach(alert => {
+        const row = document.createElement("tr");
+        row.className = "hover:bg-gray-50";
+        const alertTypeBadge = getAlertTypeBadge(alert.alert_type);
+        const createdAt = new Date(alert.created_at).toLocaleDateString("ko-KR");
+        row.innerHTML = `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${escapeHtml(alert.product_name)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${alert.current_stock}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${alertTypeBadge}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${createdAt}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${alert.notification_count}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button onclick="resolveAlert(${alert.id})" class="text-green-600 hover:text-green-900"><i class="fas fa-check"></i> 해결</button>
+            </td>`;
+        tbody.appendChild(row);
+    });
+}
+
+function renderLowStockProducts() {
+    const tbody = document.getElementById("lowStockTableBody");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    if (lowStockProducts.length === 0) {
+        tbody.innerHTML = "<tr><td colspan=\"5\" class=\"px-6 py-4 text-center text-gray-500\">재고 부족 상품이 없습니다</td></tr>";
+        return;
+    }
+    lowStockProducts.forEach(product => {
+        const row = document.createElement("tr");
+        row.className = "hover:bg-gray-50";
+        row.innerHTML = `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${escapeHtml(product.name)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${product.stock_quantity}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(product.category_name || "-")}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW" }).format(product.price)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button onclick="restockProduct(${product.id})" class="text-green-600 hover:text-green-900"><i class="fas fa-plus"></i> 입고</button>
+            </td>`;
+        tbody.appendChild(row);
+    });
+}
+
+function getAlertTypeBadge(alertType) {
+    const badges = {
+        "out_of_stock": "<span class=\"px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800\">재고 소진</span>",
+        "critical_stock": "<span class=\"px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800\">긴급</span>",
+        "low_stock": "<span class=\"px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800\">부족</span>"
+    };
+    return badges[alertType] || alertType;
+}
+
+function updateAlertStats() {
+    const total = inventoryAlerts.length;
+    const outOfStock = inventoryAlerts.filter(a => a.alert_type === "out_of_stock").length;
+    const critical = inventoryAlerts.filter(a => a.alert_type === "critical_stock").length;
+    const lowStock = inventoryAlerts.filter(a => a.alert_type === "low_stock").length;
+    document.getElementById("totalAlerts").textContent = total;
+    document.getElementById("outOfStockAlerts").textContent = outOfStock;
+    document.getElementById("criticalAlerts").textContent = critical;
+    document.getElementById("lowStockAlerts").textContent = lowStock;
+}
+
+function switchInventoryTab(tabName) {
+    currentInventoryTab = tabName;
+    document.querySelectorAll(".inventory-tab").forEach(tab => {
+        tab.classList.remove("text-gray-700", "border-thai-green");
+        tab.classList.add("text-gray-500", "border-transparent");
+    });
+    const activeTab = document.getElementById(`${tabName}Tab`) || document.getElementById("alertsTab");
+    activeTab.classList.remove("text-gray-500", "border-transparent");
+    activeTab.classList.add("text-gray-700", "border-thai-green");
+    document.getElementById("alertsTabContent").classList.add("hidden");
+    document.getElementById("lowStockTabContent").classList.add("hidden");
+    document.getElementById("historyTabContent").classList.add("hidden");
+    const contentId = tabName === "low-stock" ? "lowStockTabContent" : `${tabName}TabContent`;
+    document.getElementById(contentId).classList.remove("hidden");
+    if (tabName === "alerts") loadInventoryAlerts();
+    else if (tabName === "low-stock") loadLowStockProducts();
+    else if (tabName === "history") loadProductsForHistoryDropdown();
+}
+
+async function loadProductsForHistoryDropdown() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/tables/products?limit=1000`);
+        const data = await response.json();
+        const select = document.getElementById("historyProductSelect");
+        if (select) {
+            select.innerHTML = "<option value=\"\">상품을 선택하세요</option>";
+            data.data.forEach(product => {
+                const option = document.createElement("option");
+                option.value = product.id;
+                option.textContent = product.name;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) { console.error("Error loading products:", error); }
+}
+
+async function loadInventoryHistory() {
+    const productId = document.getElementById("historyProductSelect")?.value;
+    if (!productId) {
+        document.getElementById("historyContent").innerHTML = "<p class=\"text-gray-500 text-center py-8\">상품을 선택하여 재고 이력을 확인하세요</p>";
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/inventory/history/${productId}`);
+        const data = await response.json();
+        if (data.success) renderInventoryHistory(data.history || []);
+    } catch (error) { console.error("Error loading inventory history:", error); }
+}
+
+function renderInventoryHistory(history) {
+    const content = document.getElementById("historyContent");
+    if (!content) return;
+    if (history.length === 0) {
+        content.innerHTML = "<p class=\"text-gray-500 text-center py-8\">재고 이력이 없습니다</p>";
+        return;
+    }
+    let html = "<table class=\"min-w-full divide-y divide-gray-200\"><thead class=\"bg-gray-50\"><tr>";
+    html += "<th class=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase\">일시</th>";
+    html += "<th class=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase\">변경 유형</th>";
+    html += "<th class=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase\">이전 수량</th>";
+    html += "<th class=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase\">변경 수량</th>";
+    html += "<th class=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase\">새 수량</th>";
+    html += "<th class=\"px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase\">사유</th>";
+    html += "</tr></thead><tbody class=\"bg-white divide-y divide-gray-200\">";
+    history.forEach(item => {
+        const createdAt = new Date(item.created_at).toLocaleString("ko-KR");
+        const changeClass = item.quantity_change > 0 ? "text-green-600" : "text-red-600";
+        html += `<tr class=\"hover:bg-gray-50\">`;
+        html += `<td class=\"px-6 py-4 whitespace-nowrap text-sm text-gray-900\">${createdAt}</td>`;
+        html += `<td class=\"px-6 py-4 whitespace-nowrap text-sm text-gray-900\">${item.change_type}</td>`;
+        html += `<td class=\"px-6 py-4 whitespace-nowrap text-sm text-gray-900\">${item.previous_quantity}</td>`;
+        html += `<td class=\"px-6 py-4 whitespace-nowrap text-sm font-medium ${changeClass}\">${item.quantity_change > 0 ? "+" : ""}${item.quantity_change}</td>`;
+        html += `<td class=\"px-6 py-4 whitespace-nowrap text-sm text-gray-900\">${item.new_quantity}</td>`;
+        html += `<td class=\"px-6 py-4 whitespace-nowrap text-sm text-gray-500\">${escapeHtml(item.reason || "-")}</td>`;
+        html += `</tr>`;
+    });
+    html += "</tbody></table>";
+    content.innerHTML = html;
+}
+
+async function resolveAlert(alertId) {
+    if (!confirm("이 알림을 해결 처리하시겠습니까?")) return;
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/inventory/alerts/${alertId}/resolve`, { method: "PUT" });
+        const data = await response.json();
+        if (data.success) { alert("알림이 해결되었습니다."); loadInventoryAlerts(); }
+        else alert("알림 해결에 실패했습니다: " + (data.error || "알 수 없는 오류"));
+    } catch (error) { console.error("Error resolving alert:", error); alert("알림 해결에 실패했습니다."); }
+}
+
+async function restockProduct(productId) {
+    const quantity = prompt("입고할 수량을 입력하세요:");
+    if (!quantity || isNaN(quantity) || parseInt(quantity) <= 0) return;
+    const reason = prompt("입고 사유를 입력하세요 (선택사항):", "정기 입고") || "정기 입고";
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/inventory/update`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ product_id: productId, quantity_change: parseInt(quantity), reason: reason, changed_by: "admin" })
+        });
+        const data = await response.json();
+        if (data.success) {
+            alert(`재고가 업데이트되었습니다.\n이전: ${data.previous_quantity} → 현재: ${data.new_quantity}`);
+            loadLowStockProducts();
+            loadInventoryAlerts();
+        } else alert("재고 업데이트에 실패했습니다: " + (data.error || "알 수 없는 오류"));
+    } catch (error) { console.error("Error restocking product:", error); alert("재고 업데이트에 실패했습니다."); }
+}
+

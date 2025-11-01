@@ -348,6 +348,77 @@ async function initializeDatabase() {
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(shipping_status);`);
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_shipments_carrier_code ON shipments(carrier_code);`);
 
+    // inventory_alerts
+    await execSql(client, `
+      CREATE TABLE IF NOT EXISTS inventory_alerts (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+        alert_type VARCHAR(50) NOT NULL,
+        threshold_quantity INTEGER NOT NULL,
+        current_quantity INTEGER NOT NULL,
+        status VARCHAR(50) DEFAULT 'active',
+        last_notified_at TIMESTAMPTZ,
+        notification_count INTEGER DEFAULT 0,
+        resolved_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now()
+      );
+    `);
+
+    await execSql(client, `
+      CREATE TRIGGER inventory_alerts_set_timestamp
+      BEFORE UPDATE ON inventory_alerts
+      FOR EACH ROW
+      EXECUTE FUNCTION trigger_set_timestamp();
+    `);
+
+    // Create index for faster inventory alert queries
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_inventory_alerts_product_id ON inventory_alerts(product_id);`);
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_inventory_alerts_status ON inventory_alerts(status);`);
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_inventory_alerts_type ON inventory_alerts(alert_type);`);
+
+    // inventory_history
+    await execSql(client, `
+      CREATE TABLE IF NOT EXISTS inventory_history (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+        change_type VARCHAR(50) NOT NULL,
+        previous_quantity INTEGER NOT NULL,
+        new_quantity INTEGER NOT NULL,
+        quantity_change INTEGER NOT NULL,
+        reason TEXT,
+        changed_by VARCHAR(255),
+        order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ DEFAULT now()
+      );
+    `);
+
+    // Create index for faster inventory history queries
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_inventory_history_product_id ON inventory_history(product_id);`);
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_inventory_history_created_at ON inventory_history(created_at);`);
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_inventory_history_change_type ON inventory_history(change_type);`);
+
+    // notification_logs
+    await execSql(client, `
+      CREATE TABLE IF NOT EXISTS notification_logs (
+        id SERIAL PRIMARY KEY,
+        alert_id INTEGER REFERENCES inventory_alerts(id) ON DELETE CASCADE,
+        notification_type VARCHAR(50) NOT NULL,
+        recipient VARCHAR(255) NOT NULL,
+        subject TEXT,
+        message TEXT NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        sent_at TIMESTAMPTZ,
+        error_message TEXT,
+        created_at TIMESTAMPTZ DEFAULT now()
+      );
+    `);
+
+    // Create index for faster notification log queries
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_notification_logs_alert_id ON notification_logs(alert_id);`);
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_notification_logs_status ON notification_logs(status);`);
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_notification_logs_created_at ON notification_logs(created_at);`);
+
     // Create trigram indexes for product search performance (if needed)
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_products_name_trgm ON products USING gin (name gin_trgm_ops);`);
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_products_description_trgm ON products USING gin (description gin_trgm_ops);`);

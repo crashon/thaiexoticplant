@@ -119,6 +119,32 @@ const config = {
     autoUpdateInterval: parseInt(process.env.SHIPPING_UPDATE_INTERVAL, 10) || 3600000, // 1 hour
   },
 
+  inventory: {
+    lowStockThreshold: parseInt(process.env.LOW_STOCK_THRESHOLD, 10) || 10,
+    criticalStockThreshold: parseInt(process.env.CRITICAL_STOCK_THRESHOLD, 10) || 5,
+    outOfStockThreshold: parseInt(process.env.OUT_OF_STOCK_THRESHOLD, 10) || 0,
+    checkInterval: parseInt(process.env.INVENTORY_CHECK_INTERVAL, 10) || 1800000, // 30 minutes
+    notificationCooldown: parseInt(process.env.NOTIFICATION_COOLDOWN, 10) || 86400000, // 24 hours
+    enableEmailNotifications: process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true',
+    enableSMSNotifications: process.env.ENABLE_SMS_NOTIFICATIONS === 'true',
+    adminEmails: (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean),
+    adminPhones: (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim()).filter(Boolean),
+  },
+
+  email: {
+    service: process.env.EMAIL_SERVICE || 'gmail',
+    user: process.env.EMAIL_USER,
+    password: process.env.EMAIL_PASSWORD,
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+  },
+
+  sms: {
+    provider: process.env.SMS_PROVIDER || 'twilio', // twilio, aws-sns, etc.
+    accountSid: process.env.TWILIO_ACCOUNT_SID,
+    authToken: process.env.TWILIO_AUTH_TOKEN,
+    fromNumber: process.env.TWILIO_FROM_NUMBER,
+  },
+
   server: {
     port: parseInt(process.env.PORT, 10) || 3000,
     environment: process.env.NODE_ENV || 'development',
