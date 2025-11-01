@@ -3616,6 +3616,9 @@ window.showSection = function(sectionName) {
         loadReviews();
     } else if (sectionName === 'payments') {
         loadPayments();
+    } else if (sectionName === 'shipments') {
+        loadCarriers();
+        loadShipments();
     }
 };
 
@@ -3812,4 +3815,302 @@ function loadPreviousPayments() {
 function loadNextPayments() {
     paymentsPage++;
     loadPayments();
+}
+
+/* =====================================
+   SHIPMENT MANAGEMENT FUNCTIONS
+   ===================================== */
+
+let shipmentsData = [];
+let shipmentsPage = 1;
+let shipmentsFilter = { status: 'all', carrier: 'all', search: '' };
+let carriersData = [];
+
+// Load carriers
+async function loadCarriers() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/shipping/carriers`);
+        const data = await response.json();
+
+        if (data.success) {
+            carriersData = data.carriers;
+
+            // Populate carrier filter
+            const carrierFilter = document.getElementById('shipmentCarrierFilter');
+            if (carrierFilter) {
+                carrierFilter.innerHTML = '<option value="all">전체</option>';
+                carriersData.forEach(carrier => {
+                    const option = document.createElement('option');
+                    option.value = carrier.code;
+                    option.textContent = carrier.name;
+                    carrierFilter.appendChild(option);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error loading carriers:', error);
+    }
+}
+
+// Load shipments
+async function loadShipments() {
+    try {
+        const params = new URLSearchParams({
+            page: shipmentsPage,
+            limit: 50,
+            status: shipmentsFilter.status,
+            carrier: shipmentsFilter.carrier
+        });
+
+        const response = await fetch(`${API_BASE_URL}/api/shipments?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+            shipmentsData = data.shipments || [];
+            renderShipments();
+            updateShipmentsStats();
+        }
+    } catch (error) {
+        console.error('Error loading shipments:', error);
+        alert('배송 데이터를 불러오는데 실패했습니다.');
+    }
+}
+
+// Render shipments table
+function renderShipments() {
+    const tbody = document.getElementById('shipmentsTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    let filteredShipments = shipmentsData;
+
+    // Apply search filter
+    if (shipmentsFilter.search) {
+        const searchLower = shipmentsFilter.search.toLowerCase();
+        filteredShipments = filteredShipments.filter(shipment =>
+            shipment.tracking_number?.toLowerCase().includes(searchLower) ||
+            shipment.customer_name?.toLowerCase().includes(searchLower)
+        );
+    }
+
+    if (filteredShipments.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                    배송 내역이 없습니다
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    filteredShipments.forEach(shipment => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+
+        const statusBadge = getShipmentStatusBadge(shipment.shipping_status);
+        const shippedDate = shipment.shipped_at
+            ? new Date(shipment.shipped_at).toLocaleDateString('ko-KR')
+            : '-';
+
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">${escapeHtml(shipment.tracking_number)}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">#${shipment.order_id}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">${escapeHtml(shipment.customer_name || '-')}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">${escapeHtml(shipment.carrier_name)}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                ${statusBadge}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                ${shippedDate}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button onclick="showShipmentDetails(${shipment.id})"
+                        class="text-indigo-600 hover:text-indigo-900 mr-3">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button onclick="showEditShipmentModal(${shipment.id})"
+                        class="text-green-600 hover:text-green-900 mr-3">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteShipment(${shipment.id})"
+                        class="text-red-600 hover:text-red-900">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+
+        tbody.appendChild(row);
+    });
+}
+
+// Update shipments statistics
+function updateShipmentsStats() {
+    const total = shipmentsData.length;
+    const pending = shipmentsData.filter(s => s.shipping_status === 'pending').length;
+    const inTransit = shipmentsData.filter(s => s.shipping_status === 'in_transit').length;
+    const delivered = shipmentsData.filter(s => s.shipping_status === 'delivered').length;
+
+    document.getElementById('totalShipments').textContent = total;
+    document.getElementById('pendingShipments').textContent = pending;
+    document.getElementById('inTransitShipments').textContent = inTransit;
+    document.getElementById('deliveredShipments').textContent = delivered;
+}
+
+// Get shipment status badge HTML
+function getShipmentStatusBadge(status) {
+    const statusConfig = {
+        'pending': { text: '배송 준비', class: 'bg-yellow-100 text-yellow-800' },
+        'in_transit': { text: '배송 중', class: 'bg-blue-100 text-blue-800' },
+        'out_for_delivery': { text: '배송 출발', class: 'bg-indigo-100 text-indigo-800' },
+        'delivered': { text: '배송 완료', class: 'bg-green-100 text-green-800' },
+        'failed': { text: '배송 실패', class: 'bg-red-100 text-red-800' }
+    };
+
+    const config = statusConfig[status] || { text: status, class: 'bg-gray-100 text-gray-800' };
+    return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${config.class}">${config.text}</span>`;
+}
+
+// Filter shipments
+function filterShipments() {
+    shipmentsFilter.status = document.getElementById('shipmentStatusFilter')?.value || 'all';
+    shipmentsFilter.carrier = document.getElementById('shipmentCarrierFilter')?.value || 'all';
+    shipmentsFilter.search = document.getElementById('shipmentSearchInput')?.value || '';
+
+    shipmentsPage = 1;
+    loadShipments();
+}
+
+// Refresh shipments
+function refreshShipments() {
+    shipmentsPage = 1;
+    loadShipments();
+}
+
+// Show add shipment modal
+function showAddShipmentModal() {
+    alert('배송 등록 모달은 추후 구현 예정입니다.\n주문 관리에서 주문을 선택하여 배송 등록을 할 수 있습니다.');
+}
+
+// Show edit shipment modal
+function showEditShipmentModal(shipmentId) {
+    const shipment = shipmentsData.find(s => s.id === shipmentId);
+    if (!shipment) {
+        alert('배송 정보를 찾을 수 없습니다.');
+        return;
+    }
+
+    const newStatus = prompt(
+        `배송 상태를 변경하세요:\n\n` +
+        `현재 상태: ${getStatusText(shipment.shipping_status)}\n\n` +
+        `새 상태를 입력하세요:\n` +
+        `- pending: 배송 준비\n` +
+        `- in_transit: 배송 중\n` +
+        `- out_for_delivery: 배송 출발\n` +
+        `- delivered: 배송 완료\n` +
+        `- failed: 배송 실패`,
+        shipment.shipping_status
+    );
+
+    if (newStatus && newStatus !== shipment.shipping_status) {
+        updateShipmentStatus(shipmentId, newStatus);
+    }
+}
+
+// Update shipment status
+async function updateShipmentStatus(shipmentId, newStatus) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/shipments/${shipmentId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ shipping_status: newStatus })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert('배송 상태가 업데이트되었습니다.');
+            loadShipments();
+        } else {
+            alert('배송 상태 업데이트에 실패했습니다: ' + (data.error || '알 수 없는 오류'));
+        }
+    } catch (error) {
+        console.error('Error updating shipment:', error);
+        alert('배송 상태 업데이트에 실패했습니다.');
+    }
+}
+
+// Show shipment details
+function showShipmentDetails(shipmentId) {
+    const shipment = shipmentsData.find(s => s.id === shipmentId);
+    if (!shipment) {
+        alert('배송 정보를 찾을 수 없습니다.');
+        return;
+    }
+
+    const details = `
+배송 정보
+
+송장번호: ${shipment.tracking_number}
+주문번호: #${shipment.order_id}
+고객명: ${shipment.customer_name || '-'}
+택배사: ${shipment.carrier_name}
+배송 상태: ${getStatusText(shipment.shipping_status)}
+
+발송일: ${shipment.shipped_at ? new Date(shipment.shipped_at).toLocaleString('ko-KR') : '-'}
+예상 배송일: ${shipment.estimated_delivery ? new Date(shipment.estimated_delivery).toLocaleString('ko-KR') : '-'}
+배송 완료일: ${shipment.delivered_at ? new Date(shipment.delivered_at).toLocaleString('ko-KR') : '-'}
+
+메모: ${shipment.shipping_notes || '-'}
+    `.trim();
+
+    alert(details);
+}
+
+// Delete shipment
+async function deleteShipment(shipmentId) {
+    if (!confirm('이 배송 정보를 삭제하시겠습니까?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/shipments/${shipmentId}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert('배송 정보가 삭제되었습니다.');
+            loadShipments();
+        } else {
+            alert('배송 정보 삭제에 실패했습니다: ' + (data.error || '알 수 없는 오류'));
+        }
+    } catch (error) {
+        console.error('Error deleting shipment:', error);
+        alert('배송 정보 삭제에 실패했습니다.');
+    }
+}
+
+// Get status text in Korean
+function getStatusText(status) {
+    const statusMap = {
+        'pending': '배송 준비',
+        'in_transit': '배송 중',
+        'out_for_delivery': '배송 출발',
+        'delivered': '배송 완료',
+        'failed': '배송 실패'
+    };
+    return statusMap[status] || status;
 }

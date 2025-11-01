@@ -56,6 +56,69 @@ const config = {
     mode: process.env.PAYPAL_MODE || 'sandbox', // 'sandbox' or 'live'
   },
 
+  shipping: {
+    carriers: {
+      CJ: {
+        code: 'CJ',
+        name: 'CJ대한통운',
+        nameEn: 'CJ Logistics',
+        trackingUrl: 'https://www.cjlogistics.com/ko/tool/parcel/tracking',
+        apiUrl: process.env.CJ_API_URL,
+        apiKey: process.env.CJ_API_KEY,
+      },
+      HANJIN: {
+        code: 'HANJIN',
+        name: '한진택배',
+        nameEn: 'Hanjin Express',
+        trackingUrl: 'https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do',
+        apiUrl: process.env.HANJIN_API_URL,
+        apiKey: process.env.HANJIN_API_KEY,
+      },
+      LOTTE: {
+        code: 'LOTTE',
+        name: '롯데택배',
+        nameEn: 'Lotte Global Logistics',
+        trackingUrl: 'https://www.lotteglogis.com/home/reservation/tracking/linkView',
+        apiUrl: process.env.LOTTE_API_URL,
+        apiKey: process.env.LOTTE_API_KEY,
+      },
+      LOGEN: {
+        code: 'LOGEN',
+        name: '로젠택배',
+        nameEn: 'Logen',
+        trackingUrl: 'https://www.ilogen.com/web/personal/trace',
+        apiUrl: process.env.LOGEN_API_URL,
+        apiKey: process.env.LOGEN_API_KEY,
+      },
+      KDEXP: {
+        code: 'KDEXP',
+        name: '경동택배',
+        nameEn: 'KD Express',
+        trackingUrl: 'https://kdexp.com/newDeliverySearch.kd',
+        apiUrl: process.env.KDEXP_API_URL,
+        apiKey: process.env.KDEXP_API_KEY,
+      },
+      CVSNET: {
+        code: 'CVSNET',
+        name: 'GS Postbox 택배',
+        nameEn: 'CVSNet',
+        trackingUrl: 'https://www.cvsnet.co.kr/invoice/tracking.do',
+        apiUrl: process.env.CVSNET_API_URL,
+        apiKey: process.env.CVSNET_API_KEY,
+      },
+      EPOST: {
+        code: 'EPOST',
+        name: '우체국택배',
+        nameEn: 'Korea Post',
+        trackingUrl: 'https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm',
+        apiUrl: process.env.EPOST_API_URL,
+        apiKey: process.env.EPOST_API_KEY,
+      },
+    },
+    defaultCarrier: 'CJ',
+    autoUpdateInterval: parseInt(process.env.SHIPPING_UPDATE_INTERVAL, 10) || 3600000, // 1 hour
+  },
+
   server: {
     port: parseInt(process.env.PORT, 10) || 3000,
     environment: process.env.NODE_ENV || 'development',

@@ -1105,6 +1105,271 @@ app.get('/api/payments', requireAdmin, async (req, res) => {
 });
 
 /* ---------------------
+   Shipping API endpoints
+   --------------------- */
+
+// Get all shipping carriers
+app.get('/api/shipping/carriers', (req, res) => {
+  const carriers = Object.values(config.shipping.carriers).map(carrier => ({
+    code: carrier.code,
+    name: carrier.name,
+    nameEn: carrier.nameEn,
+    trackingUrl: carrier.trackingUrl,
+  }));
+
+  res.json({ success: true, carriers });
+});
+
+// Create a new shipment (admin only)
+app.post('/api/shipments', requireAdmin, async (req, res) => {
+  const {
+    order_id,
+    tracking_number,
+    carrier_code,
+    shipping_notes,
+    estimated_delivery
+  } = req.body;
+
+  if (!order_id || !tracking_number || !carrier_code) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing required fields: order_id, tracking_number, carrier_code'
+    });
+  }
+
+  const carrier = config.shipping.carriers[carrier_code];
+  if (!carrier) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid carrier code'
+    });
+  }
+
+  try {
+    // Check if order exists
+    const orderResult = await pool.query('SELECT id FROM orders WHERE id = $1', [order_id]);
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO shipments
+       (order_id, tracking_number, carrier_code, carrier_name, shipping_status, shipping_notes, estimated_delivery, shipped_at)
+       VALUES ($1, $2, $3, $4, 'pending', $5, $6, now())
+       RETURNING *`,
+      [order_id, tracking_number, carrier_code, carrier.name, shipping_notes, estimated_delivery]
+    );
+
+    // Update order status to 'shipped'
+    await pool.query(
+      'UPDATE orders SET status = $1, updated_at = now() WHERE id = $2',
+      ['shipped', order_id]
+    );
+
+    res.json({ success: true, shipment: result.rows[0] });
+  } catch (error) {
+    console.error('Error creating shipment:', error);
+    if (error.code === '23505') { // unique violation
+      return res.status(400).json({ success: false, error: 'Tracking number already exists' });
+    }
+    res.status(500).json({ success: false, error: 'Failed to create shipment' });
+  }
+});
+
+// Get shipment by tracking number (public)
+app.get('/api/shipments/track/:trackingNumber', async (req, res) => {
+  const { trackingNumber } = req.params;
+
+  try {
+    const result = await pool.query(
+      `SELECT s.*, o.customer_name, o.customer_email, o.total_amount, o.status as order_status
+       FROM shipments s
+       LEFT JOIN orders o ON s.order_id = o.id
+       WHERE s.tracking_number = $1`,
+      [trackingNumber]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Shipment not found' });
+    }
+
+    const shipment = result.rows[0];
+    const carrier = config.shipping.carriers[shipment.carrier_code];
+
+    res.json({
+      success: true,
+      shipment: {
+        ...shipment,
+        carrier_tracking_url: carrier ? carrier.trackingUrl : null,
+      }
+    });
+  } catch (error) {
+    console.error('Error tracking shipment:', error);
+    res.status(500).json({ success: false, error: 'Failed to track shipment' });
+  }
+});
+
+// Get shipments for an order
+app.get('/api/shipments/order/:orderId', async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    const result = await pool.query(
+      'SELECT * FROM shipments WHERE order_id = $1 ORDER BY created_at DESC',
+      [orderId]
+    );
+
+    res.json({ success: true, shipments: result.rows });
+  } catch (error) {
+    console.error('Error fetching order shipments:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch shipments' });
+  }
+});
+
+// Get all shipments (admin only)
+app.get('/api/shipments', requireAdmin, async (req, res) => {
+  const limit = Math.max(1, parseInt(req.query.limit) || 100);
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const offset = (page - 1) * limit;
+  const status = req.query.status;
+  const carrier = req.query.carrier;
+
+  try {
+    let whereClause = [];
+    let params = [];
+    let paramIndex = 1;
+
+    if (status && status !== 'all') {
+      whereClause.push(`s.shipping_status = $${paramIndex}`);
+      params.push(status);
+      paramIndex++;
+    }
+
+    if (carrier && carrier !== 'all') {
+      whereClause.push(`s.carrier_code = $${paramIndex}`);
+      params.push(carrier);
+      paramIndex++;
+    }
+
+    const whereSQL = whereClause.length > 0 ? 'WHERE ' + whereClause.join(' AND ') : '';
+
+    const countResult = await pool.query(`SELECT COUNT(*) FROM shipments s ${whereSQL}`, params);
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    params.push(limit, offset);
+    const result = await pool.query(
+      `SELECT s.*, o.customer_name, o.customer_email, o.total_amount
+       FROM shipments s
+       LEFT JOIN orders o ON s.order_id = o.id
+       ${whereSQL}
+       ORDER BY s.created_at DESC
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      params
+    );
+
+    res.json({ success: true, shipments: result.rows, total, page, limit });
+  } catch (error) {
+    console.error('Error fetching shipments:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch shipments' });
+  }
+});
+
+// Update shipment status (admin only)
+app.put('/api/shipments/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const {
+    shipping_status,
+    shipping_notes,
+    estimated_delivery,
+    tracking_data
+  } = req.body;
+
+  try {
+    // Get current shipment
+    const current = await pool.query('SELECT * FROM shipments WHERE id = $1', [id]);
+    if (current.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Shipment not found' });
+    }
+
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (shipping_status !== undefined) {
+      updates.push(`shipping_status = $${paramIndex}`);
+      values.push(shipping_status);
+      paramIndex++;
+
+      // Auto-update delivered_at when status changes to 'delivered'
+      if (shipping_status === 'delivered') {
+        updates.push(`delivered_at = now()`);
+      }
+    }
+
+    if (shipping_notes !== undefined) {
+      updates.push(`shipping_notes = $${paramIndex}`);
+      values.push(shipping_notes);
+      paramIndex++;
+    }
+
+    if (estimated_delivery !== undefined) {
+      updates.push(`estimated_delivery = $${paramIndex}`);
+      values.push(estimated_delivery);
+      paramIndex++;
+    }
+
+    if (tracking_data !== undefined) {
+      updates.push(`tracking_data = $${paramIndex}`);
+      values.push(JSON.stringify(tracking_data));
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, error: 'No fields to update' });
+    }
+
+    updates.push(`updated_at = now()`);
+    values.push(id);
+
+    const result = await pool.query(
+      `UPDATE shipments SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+      values
+    );
+
+    // Update order status if shipment is delivered
+    if (shipping_status === 'delivered') {
+      await pool.query(
+        'UPDATE orders SET status = $1, updated_at = now() WHERE id = $2',
+        ['delivered', result.rows[0].order_id]
+      );
+    }
+
+    res.json({ success: true, shipment: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating shipment:', error);
+    res.status(500).json({ success: false, error: 'Failed to update shipment' });
+  }
+});
+
+// Delete shipment (admin only)
+app.delete('/api/shipments/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query('DELETE FROM shipments WHERE id = $1 RETURNING *', [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Shipment not found' });
+    }
+
+    res.json({ success: true, message: 'Shipment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting shipment:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete shipment' });
+  }
+});
+
+/* ---------------------
    Static HTML routes (serve from public/)
    --------------------- */
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
@@ -1112,6 +1377,72 @@ app.get('/shops.html', (req, res) => res.sendFile(path.join(__dirname, 'public',
 app.get('/shop.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'shop.html')));
 app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/shop-owner.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'shop-owner.html')));
+app.get('/tracking.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'tracking.html')));
+
+/* ---------------------
+   Shipping Auto-Update System
+   --------------------- */
+
+/**
+ * Auto-update shipping status
+ * This function periodically checks shipments and updates their status
+ *
+ * NOTE: In production, this would integrate with actual carrier APIs:
+ * - CJ대한통운 API
+ * - 한진택배 API
+ * - 롯데택배 API
+ * etc.
+ *
+ * Each carrier requires separate API keys and authentication.
+ * For now, this is a placeholder for the auto-update system.
+ */
+async function updateShipmentStatuses() {
+  try {
+    // Get all non-delivered shipments
+    const result = await pool.query(
+      `SELECT * FROM shipments
+       WHERE shipping_status NOT IN ('delivered', 'failed')
+       ORDER BY created_at ASC
+       LIMIT 100`
+    );
+
+    const shipments = result.rows;
+    console.log(`Checking ${shipments.length} active shipments for status updates...`);
+
+    for (const shipment of shipments) {
+      // TODO: Integrate with actual carrier APIs
+      // Example placeholder logic:
+      // const carrierAPI = getCarrierAPI(shipment.carrier_code);
+      // const statusUpdate = await carrierAPI.getTrackingInfo(shipment.tracking_number);
+      //
+      // if (statusUpdate) {
+      //   await pool.query(
+      //     `UPDATE shipments
+      //      SET shipping_status = $1, tracking_data = $2, updated_at = now()
+      //      WHERE id = $3`,
+      //     [statusUpdate.status, JSON.stringify(statusUpdate.data), shipment.id]
+      //   );
+      // }
+
+      // For now, log that we would check this shipment
+      console.log(`Would check shipment ${shipment.tracking_number} with ${shipment.carrier_name}`);
+    }
+  } catch (error) {
+    console.error('Error updating shipment statuses:', error);
+  }
+}
+
+// Schedule auto-update based on config interval
+function startShipmentAutoUpdate() {
+  const interval = config.shipping.autoUpdateInterval;
+  console.log(`Starting shipment auto-update system (interval: ${interval}ms)`);
+
+  // Run immediately on startup
+  updateShipmentStatuses();
+
+  // Schedule periodic updates
+  setInterval(updateShipmentStatuses, interval);
+}
 
 /* ---------------------
    Start server
@@ -1123,6 +1454,13 @@ startServer().then(() => {
     console.log('- GET /tables/categories?limit=100');
     console.log('- GET /tables/products?page=1&limit=20&sort=name');
     console.log('- Protected endpoints require x-admin-token header or ADMIN_API_TOKEN in query');
+
+    // Start shipping auto-update system
+    if (process.env.ENABLE_SHIPPING_AUTO_UPDATE === 'true') {
+      startShipmentAutoUpdate();
+    } else {
+      console.log('Shipping auto-update is disabled. Set ENABLE_SHIPPING_AUTO_UPDATE=true to enable.');
+    }
   });
 }).catch(error => {
   console.error('Failed to start server:', error);

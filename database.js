@@ -316,6 +316,38 @@ async function initializeDatabase() {
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_payments_transaction_id ON payments(transaction_id);`);
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);`);
 
+    // shipments
+    await execSql(client, `
+      CREATE TABLE IF NOT EXISTS shipments (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+        tracking_number VARCHAR(100) UNIQUE,
+        carrier_code VARCHAR(50) NOT NULL,
+        carrier_name VARCHAR(100) NOT NULL,
+        shipping_status VARCHAR(50) DEFAULT 'pending',
+        shipping_notes TEXT,
+        shipped_at TIMESTAMPTZ,
+        delivered_at TIMESTAMPTZ,
+        estimated_delivery TIMESTAMPTZ,
+        tracking_data JSONB,
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now()
+      );
+    `);
+
+    await execSql(client, `
+      CREATE TRIGGER shipments_set_timestamp
+      BEFORE UPDATE ON shipments
+      FOR EACH ROW
+      EXECUTE FUNCTION trigger_set_timestamp();
+    `);
+
+    // Create index for faster shipment queries
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_shipments_order_id ON shipments(order_id);`);
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_shipments_tracking_number ON shipments(tracking_number);`);
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(shipping_status);`);
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_shipments_carrier_code ON shipments(carrier_code);`);
+
     // Create trigram indexes for product search performance (if needed)
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_products_name_trgm ON products USING gin (name gin_trgm_ops);`);
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_products_description_trgm ON products USING gin (description gin_trgm_ops);`);
