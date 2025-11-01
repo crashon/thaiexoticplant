@@ -287,6 +287,35 @@ async function initializeDatabase() {
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_reviews_product_id ON reviews(product_id);`);
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_reviews_shop_id ON reviews(shop_id);`);
 
+    // payments
+    await execSql(client, `
+      CREATE TABLE IF NOT EXISTS payments (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+        payment_method VARCHAR(50) NOT NULL,
+        payment_provider VARCHAR(50) NOT NULL,
+        transaction_id VARCHAR(255) UNIQUE,
+        amount NUMERIC(12,2) NOT NULL,
+        currency VARCHAR(3) DEFAULT 'THB',
+        status VARCHAR(50) DEFAULT 'pending',
+        payment_data JSONB,
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now()
+      );
+    `);
+
+    await execSql(client, `
+      CREATE TRIGGER payments_set_timestamp
+      BEFORE UPDATE ON payments
+      FOR EACH ROW
+      EXECUTE FUNCTION trigger_set_timestamp();
+    `);
+
+    // Create index for faster payment queries
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);`);
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_payments_transaction_id ON payments(transaction_id);`);
+    await execSql(client, `CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);`);
+
     // Create trigram indexes for product search performance (if needed)
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_products_name_trgm ON products USING gin (name gin_trgm_ops);`);
     await execSql(client, `CREATE INDEX IF NOT EXISTS idx_products_description_trgm ON products USING gin (description gin_trgm_ops);`);

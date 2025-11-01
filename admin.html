@@ -114,6 +114,13 @@
                         </a>
                     </li>
                     <li>
+                        <a href="#payments" onclick="showSection('payments')"
+                           class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
+                            <i class="fas fa-credit-card"></i>
+                            <span data-i18n="navigation.payments">결제 관리</span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="#analytics" onclick="showSection('analytics')"
                            class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-plant-green hover:text-white transition duration-200">
                             <i class="fas fa-chart-line"></i>
@@ -691,6 +698,114 @@
                                     <i class="fas fa-chevron-left"></i>
                                 </button>
                                 <button onclick="loadNextReviews()"
+                                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Payments Section -->
+            <section id="payments-section" class="admin-section hidden">
+                <div class="mb-8 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-3xl font-bold text-thai-green mb-2">결제 관리</h2>
+                        <p class="text-gray-600">결제 내역을 확인하고 관리할 수 있습니다</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="refreshPayments()"
+                                class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition duration-200">
+                            <i class="fas fa-sync-alt mr-2"></i>새로고침
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Payment Stats -->
+                <div class="grid md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-600">전체 결제</span>
+                            <i class="fas fa-credit-card text-2xl text-blue-500"></i>
+                        </div>
+                        <div class="text-3xl font-bold text-thai-green" id="total-payments-count">0</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-600">완료된 결제</span>
+                            <i class="fas fa-check-circle text-2xl text-green-500"></i>
+                        </div>
+                        <div class="text-3xl font-bold text-green-600" id="completed-payments-count">0</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-600">대기 중</span>
+                            <i class="fas fa-clock text-2xl text-orange-400"></i>
+                        </div>
+                        <div class="text-3xl font-bold text-orange-500" id="pending-payments-count">0</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-gray-600">총 결제액</span>
+                            <i class="fas fa-dollar-sign text-2xl text-plant-green"></i>
+                        </div>
+                        <div class="text-3xl font-bold text-plant-green" id="total-payment-amount">0 ฿</div>
+                    </div>
+                </div>
+
+                <!-- Payments Table -->
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="p-6 border-b">
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <input type="text" id="payment-search" placeholder="주문번호, 고객명으로 검색..."
+                                   class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plant-green focus:border-transparent">
+                            <select id="payment-status-filter" onchange="filterPayments()"
+                                    class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plant-green focus:border-transparent">
+                                <option value="all">전체 상태</option>
+                                <option value="completed">완료</option>
+                                <option value="pending">대기중</option>
+                                <option value="failed">실패</option>
+                            </select>
+                            <select id="payment-provider-filter" onchange="filterPayments()"
+                                    class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plant-green focus:border-transparent">
+                                <option value="all">전체 제공사</option>
+                                <option value="stripe">Stripe</option>
+                                <option value="paypal">PayPal</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">결제 ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">고객</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">금액</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">결제 방법</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">결제일</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payments-table-body" class="bg-white divide-y divide-gray-200">
+                                <!-- Payments will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="px-6 py-4 bg-gray-50 border-t">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-600">
+                                <span id="payments-showing">0</span>개의 결제 중 <span id="payments-total">0</span>개 표시
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="loadPreviousPayments()"
+                                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <button onclick="loadNextPayments()"
                                         class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
                                     <i class="fas fa-chevron-right"></i>
                                 </button>

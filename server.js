@@ -7,6 +7,19 @@ const crypto = require('crypto');
 const config = require('./config');
 const { pool, initializeDatabase, insertSampleData, saveUserToken, getUserToken } = require('./database');
 
+// Initialize payment providers
+const stripe = config.stripe.secretKey ? require('stripe')(config.stripe.secretKey) : null;
+const paypal = require('@paypal/checkout-server-sdk');
+
+// PayPal environment setup
+let paypalClient = null;
+if (config.paypal.clientId && config.paypal.clientSecret) {
+  const environment = config.paypal.mode === 'live'
+    ? new paypal.core.LiveEnvironment(config.paypal.clientId, config.paypal.clientSecret)
+    : new paypal.core.SandboxEnvironment(config.paypal.clientId, config.paypal.clientSecret);
+  paypalClient = new paypal.core.PayPalHttpClient(environment);
+}
+
 const app = express();
 const PORT = config.server.port;
 
@@ -832,6 +845,262 @@ app.get('/api/export-data', requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('Error exporting data:', err);
     res.status(500).json({ success: false, error: 'Failed to export data' });
+  }
+});
+
+/* ---------------------
+   Payment API endpoints
+   --------------------- */
+
+// Get payment configuration (public keys only)
+app.get('/api/payments/config', (req, res) => {
+  res.json({
+    stripe: {
+      publishableKey: config.stripe.publishableKey || null,
+      enabled: !!config.stripe.secretKey
+    },
+    paypal: {
+      clientId: config.paypal.clientId || null,
+      enabled: !!paypalClient
+    }
+  });
+});
+
+// Create Stripe Payment Intent
+app.post('/api/payments/stripe/create-payment-intent', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({ success: false, error: 'Stripe not configured' });
+  }
+
+  const { amount, currency = 'thb', orderId, metadata = {} } = req.body;
+
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ success: false, error: 'Invalid amount' });
+  }
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // Stripe uses cents
+      currency: currency.toLowerCase(),
+      metadata: {
+        orderId: orderId || '',
+        ...metadata
+      }
+    });
+
+    // Save payment record
+    if (orderId) {
+      await pool.query(
+        `INSERT INTO payments (order_id, payment_method, payment_provider, transaction_id, amount, currency, status, payment_data)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [orderId, 'card', 'stripe', paymentIntent.id, amount, currency.toUpperCase(), 'pending', JSON.stringify({ clientSecret: paymentIntent.client_secret })]
+      );
+    }
+
+    res.json({
+      success: true,
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id
+    });
+  } catch (error) {
+    console.error('Stripe payment intent error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create payment intent' });
+  }
+});
+
+// Stripe Webhook handler
+app.post('/api/payments/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe || !config.stripe.webhookSecret) {
+    return res.status(503).send('Webhook not configured');
+  }
+
+  const sig = req.headers['stripe-signature'];
+
+  try {
+    const event = stripe.webhooks.constructEvent(req.body, sig, config.stripe.webhookSecret);
+
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        const paymentIntent = event.data.object;
+        // Update payment status
+        await pool.query(
+          'UPDATE payments SET status = $1, updated_at = now() WHERE transaction_id = $2',
+          ['completed', paymentIntent.id]
+        );
+
+        // Update order status if orderId is in metadata
+        if (paymentIntent.metadata.orderId) {
+          await pool.query(
+            'UPDATE orders SET status = $1, updated_at = now() WHERE id = $2',
+            ['paid', paymentIntent.metadata.orderId]
+          );
+        }
+        break;
+
+      case 'payment_intent.payment_failed':
+        const failedPayment = event.data.object;
+        await pool.query(
+          'UPDATE payments SET status = $1, updated_at = now() WHERE transaction_id = $2',
+          ['failed', failedPayment.id]
+        );
+        break;
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error('Webhook error:', err.message);
+    res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+});
+
+// Create PayPal Order
+app.post('/api/payments/paypal/create-order', async (req, res) => {
+  if (!paypalClient) {
+    return res.status(503).json({ success: false, error: 'PayPal not configured' });
+  }
+
+  const { amount, currency = 'USD', orderId } = req.body;
+
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ success: false, error: 'Invalid amount' });
+  }
+
+  try {
+    const request = new paypal.orders.OrdersCreateRequest();
+    request.prefer('return=representation');
+    request.requestBody({
+      intent: 'CAPTURE',
+      purchase_units: [{
+        amount: {
+          currency_code: currency.toUpperCase(),
+          value: amount.toFixed(2)
+        },
+        custom_id: orderId || ''
+      }]
+    });
+
+    const order = await paypalClient.execute(request);
+
+    // Save payment record
+    if (orderId) {
+      await pool.query(
+        `INSERT INTO payments (order_id, payment_method, payment_provider, transaction_id, amount, currency, status, payment_data)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [orderId, 'paypal', 'paypal', order.result.id, amount, currency.toUpperCase(), 'pending', JSON.stringify(order.result)]
+      );
+    }
+
+    res.json({
+      success: true,
+      orderId: order.result.id
+    });
+  } catch (error) {
+    console.error('PayPal create order error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create PayPal order' });
+  }
+});
+
+// Capture PayPal Order
+app.post('/api/payments/paypal/capture-order', async (req, res) => {
+  if (!paypalClient) {
+    return res.status(503).json({ success: false, error: 'PayPal not configured' });
+  }
+
+  const { orderID } = req.body;
+
+  if (!orderID) {
+    return res.status(400).json({ success: false, error: 'OrderID required' });
+  }
+
+  try {
+    const request = new paypal.orders.OrdersCaptureRequest(orderID);
+    request.requestBody({});
+
+    const capture = await paypalClient.execute(request);
+
+    // Update payment status
+    await pool.query(
+      'UPDATE payments SET status = $1, payment_data = $2, updated_at = now() WHERE transaction_id = $3',
+      ['completed', JSON.stringify(capture.result), orderID]
+    );
+
+    // Get the order_id from payment record and update order status
+    const paymentResult = await pool.query('SELECT order_id FROM payments WHERE transaction_id = $1', [orderID]);
+    if (paymentResult.rows.length > 0 && paymentResult.rows[0].order_id) {
+      await pool.query(
+        'UPDATE orders SET status = $1, updated_at = now() WHERE id = $2',
+        ['paid', paymentResult.rows[0].order_id]
+      );
+    }
+
+    res.json({
+      success: true,
+      captureId: capture.result.id,
+      status: capture.result.status
+    });
+  } catch (error) {
+    console.error('PayPal capture order error:', error);
+    res.status(500).json({ success: false, error: 'Failed to capture PayPal order' });
+  }
+});
+
+// Get payment by ID (admin only)
+app.get('/api/payments/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query('SELECT * FROM payments WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+
+    res.json({ success: true, payment: result.rows[0] });
+  } catch (error) {
+    console.error('Error fetching payment:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch payment' });
+  }
+});
+
+// Get payments for an order
+app.get('/api/payments/order/:orderId', async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    const result = await pool.query(
+      'SELECT * FROM payments WHERE order_id = $1 ORDER BY created_at DESC',
+      [orderId]
+    );
+
+    res.json({ success: true, payments: result.rows });
+  } catch (error) {
+    console.error('Error fetching order payments:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch payments' });
+  }
+});
+
+// Get all payments (admin only)
+app.get('/api/payments', requireAdmin, async (req, res) => {
+  const limit = Math.max(1, parseInt(req.query.limit) || 100);
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const offset = (page - 1) * limit;
+
+  try {
+    const countResult = await pool.query('SELECT COUNT(*) FROM payments');
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    const result = await pool.query(
+      `SELECT p.*, o.customer_name, o.customer_email
+       FROM payments p
+       LEFT JOIN orders o ON p.order_id = o.id
+       ORDER BY p.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+
+    res.json({ success: true, payments: result.rows, total, page, limit });
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch payments' });
   }
 });
 

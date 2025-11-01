@@ -3614,5 +3614,202 @@ window.showSection = function(sectionName) {
 
     if (sectionName === 'reviews') {
         loadReviews();
+    } else if (sectionName === 'payments') {
+        loadPayments();
     }
 };
+
+/* ===========================================
+   PAYMENTS MANAGEMENT
+   =========================================== */
+
+let paymentsData = [];
+let paymentsPage = 1;
+let paymentsFilter = {
+    status: 'all',
+    provider: 'all'
+};
+
+// Load payments
+async function loadPayments() {
+    try {
+        const response = await fetch(`/api/payments?page=${paymentsPage}&limit=50`);
+        const result = await response.json();
+        paymentsData = result.payments || [];
+        renderPayments();
+        updatePaymentsStats();
+    } catch (error) {
+        console.error('Error loading payments:', error);
+        showNotification('결제 내역을 불러오는데 실패했습니다.', 'error');
+    }
+}
+
+// Render payments table
+function renderPayments() {
+    const tbody = document.getElementById('payments-table-body');
+    if (!tbody) return;
+
+    const filteredPayments = filterPaymentsByStatus();
+
+    if (filteredPayments.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="px-6 py-8 text-center text-gray-500">
+                    <i class="fas fa-inbox text-4xl mb-2"></i>
+                    <p>결제 내역이 없습니다.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filteredPayments.map(payment => {
+        const date = new Date(payment.created_at).toLocaleDateString('ko-KR');
+        const statusBadge = getPaymentStatusBadge(payment.status);
+        const providerBadge = getPaymentProviderBadge(payment.payment_provider);
+
+        return `
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">#${payment.id}</div>
+                    <div class="text-sm text-gray-500">${payment.transaction_id || 'N/A'}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">${escapeHtml(payment.customer_name || '알 수 없음')}</div>
+                    <div class="text-sm text-gray-500">${escapeHtml(payment.customer_email || '')}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-semibold text-gray-900">${payment.amount.toLocaleString()} ${payment.currency}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    ${providerBadge}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    ${statusBadge}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    ${date}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div class="flex gap-2">
+                        <button onclick="viewPaymentDetails(${payment.id})"
+                                class="text-blue-600 hover:text-blue-900"
+                                title="상세보기">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    // Update pagination info
+    document.getElementById('payments-showing').textContent = filteredPayments.length;
+    document.getElementById('payments-total').textContent = paymentsData.length;
+}
+
+// Get payment status badge
+function getPaymentStatusBadge(status) {
+    const badges = {
+        completed: '<span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">완료</span>',
+        pending: '<span class="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs">대기중</span>',
+        failed: '<span class="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">실패</span>'
+    };
+    return badges[status] || `<span class="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">${status}</span>`;
+}
+
+// Get payment provider badge
+function getPaymentProviderBadge(provider) {
+    const badges = {
+        stripe: '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"><i class="fab fa-stripe"></i> Stripe</span>',
+        paypal: '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"><i class="fab fa-paypal"></i> PayPal</span>'
+    };
+    return badges[provider] || `<span class="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">${provider}</span>`;
+}
+
+// Filter payments by status and provider
+function filterPaymentsByStatus() {
+    const searchTerm = document.getElementById('payment-search')?.value.toLowerCase() || '';
+
+    let filtered = paymentsData;
+
+    // Apply status filter
+    if (paymentsFilter.status !== 'all') {
+        filtered = filtered.filter(p => p.status === paymentsFilter.status);
+    }
+
+    // Apply provider filter
+    if (paymentsFilter.provider !== 'all') {
+        filtered = filtered.filter(p => p.payment_provider === paymentsFilter.provider);
+    }
+
+    // Apply search filter
+    if (searchTerm) {
+        filtered = filtered.filter(p =>
+            (p.customer_name && p.customer_name.toLowerCase().includes(searchTerm)) ||
+            (p.customer_email && p.customer_email.toLowerCase().includes(searchTerm)) ||
+            (p.id && p.id.toString().includes(searchTerm)) ||
+            (p.transaction_id && p.transaction_id.toLowerCase().includes(searchTerm))
+        );
+    }
+
+    return filtered;
+}
+
+// Update payments statistics
+function updatePaymentsStats() {
+    const totalPayments = paymentsData.length;
+    const completedPayments = paymentsData.filter(p => p.status === 'completed').length;
+    const pendingPayments = paymentsData.filter(p => p.status === 'pending').length;
+    const totalAmount = paymentsData
+        .filter(p => p.status === 'completed')
+        .reduce((sum, p) => sum + parseFloat(p.amount), 0);
+
+    document.getElementById('total-payments-count').textContent = totalPayments;
+    document.getElementById('completed-payments-count').textContent = completedPayments;
+    document.getElementById('pending-payments-count').textContent = pendingPayments;
+    document.getElementById('total-payment-amount').textContent = totalAmount.toLocaleString() + ' ฿';
+}
+
+// View payment details
+function viewPaymentDetails(paymentId) {
+    const payment = paymentsData.find(p => p.id === paymentId);
+    if (!payment) return;
+
+    alert(`결제 상세 정보\n\n` +
+          `결제 ID: ${payment.id}\n` +
+          `거래 ID: ${payment.transaction_id || 'N/A'}\n` +
+          `주문 ID: ${payment.order_id || 'N/A'}\n` +
+          `금액: ${payment.amount} ${payment.currency}\n` +
+          `결제 방법: ${payment.payment_method}\n` +
+          `제공사: ${payment.payment_provider}\n` +
+          `상태: ${payment.status}\n` +
+          `고객: ${payment.customer_name || 'N/A'}\n` +
+          `이메일: ${payment.customer_email || 'N/A'}\n` +
+          `생성일: ${new Date(payment.created_at).toLocaleString('ko-KR')}`);
+}
+
+// Refresh payments
+function refreshPayments() {
+    loadPayments();
+}
+
+// Filter payments
+function filterPayments() {
+    paymentsFilter.status = document.getElementById('payment-status-filter')?.value || 'all';
+    paymentsFilter.provider = document.getElementById('payment-provider-filter')?.value || 'all';
+    renderPayments();
+}
+
+// Pagination functions
+function loadPreviousPayments() {
+    if (paymentsPage > 1) {
+        paymentsPage--;
+        loadPayments();
+    }
+}
+
+function loadNextPayments() {
+    paymentsPage++;
+    loadPayments();
+}

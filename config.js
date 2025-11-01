@@ -44,6 +44,18 @@ const config = {
     version: process.env.FACEBOOK_VERSION || 'v19.0',
   },
 
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY,
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  },
+
+  paypal: {
+    clientId: process.env.PAYPAL_CLIENT_ID,
+    clientSecret: process.env.PAYPAL_CLIENT_SECRET,
+    mode: process.env.PAYPAL_MODE || 'sandbox', // 'sandbox' or 'live'
+  },
+
   server: {
     port: parseInt(process.env.PORT, 10) || 3000,
     environment: process.env.NODE_ENV || 'development',
@@ -57,6 +69,9 @@ if (config.server.environment !== 'production') {
   console.log('⚙️ Loaded configuration:');
   console.log(` - Facebook App ID: ${config.facebook.appId || '(not set)'}`);
   console.log(` - Redirect URI: ${config.facebook.redirectUri}`);
+  console.log(` - Stripe Secret Key: ${config.stripe.secretKey ? '***' + config.stripe.secretKey.slice(-4) : '(not set)'}`);
+  console.log(` - PayPal Client ID: ${config.paypal.clientId || '(not set)'}`);
+  console.log(` - PayPal Mode: ${config.paypal.mode}`);
   console.log(` - Server port: ${config.server.port}`);
   console.log(` - Environment: ${config.server.environment}`);
   console.log('---------------------------------------------');
